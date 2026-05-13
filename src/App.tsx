@@ -45,6 +45,9 @@ export default function App() {
   const addTracks = (newTracks: Track[]) =>
     setTracks(prev => [...newTracks, ...prev]);
 
+  const updateLyrics = (id: string, lyrics: string) =>
+    setTracks(prev => prev.map(t => t.id === id ? { ...t, lyrics } : t));
+
   const handleLike = (id: string) => {
     setLikedIds(prev => {
       const next = new Set(prev);
@@ -79,6 +82,7 @@ export default function App() {
             setPlayer={setPlayer} seekTo={seekTo}
             onNext={playNext} onPrev={playPrev}
             onLike={handleLike} likedIds={likedIds}
+            onUpdateLyrics={updateLyrics}
           />
         )}
         {page === "upload" && <UploadPage onAdd={addTracks} setPage={setPage} />}

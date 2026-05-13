@@ -1,3 +1,4 @@
+import { useState } from "react";
 import Icon from "@/components/ui/icon";
 import VinylDisk from "../components/VinylDisk";
 import LyricsScroller from "../components/LyricsScroller";
@@ -14,6 +15,7 @@ interface Props {
   onPrev: () => void;
   onLike: (id: string) => void;
   likedIds: Set<string>;
+  onUpdateLyrics: (id: string, lyrics: string) => void;
 }
 
 function formatTime(sec: number): string {
@@ -25,10 +27,30 @@ function formatTime(sec: number): string {
 
 export default function PlayerPage({
   player, tracks, onPlay, onToggle, setPlayer,
-  seekTo, onNext, onPrev, onLike, likedIds,
+  seekTo, onNext, onPrev, onLike, likedIds, onUpdateLyrics,
 }: Props) {
   const { currentTrack, isPlaying, progress, volume } = player;
   const liked = currentTrack ? likedIds.has(currentTrack.id) : false;
+
+  const [lyricsEditorOpen, setLyricsEditorOpen] = useState(false);
+  const [lyricsInput, setLyricsInput] = useState("");
+
+  const openEditor = () => {
+    setLyricsInput(currentTrack?.lyrics ?? "");
+    setLyricsEditorOpen(true);
+  };
+
+  const saveLyrics = () => {
+    if (!currentTrack) return;
+    onUpdateLyrics(currentTrack.id, lyricsInput.trim());
+    setLyricsEditorOpen(false);
+  };
+
+  const deleteLyrics = () => {
+    if (!currentTrack) return;
+    onUpdateLyrics(currentTrack.id, "");
+    setLyricsEditorOpen(false);
+  };
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -53,30 +75,22 @@ export default function PlayerPage({
             <>
               {/* Vinyl + Info */}
               <div className="glass-card rounded-xl overflow-hidden">
-                {/* Верхняя часть: размытый фон обложки */}
                 <div className="relative overflow-hidden" style={{ minHeight: 300 }}>
-                  {/* Размытый фон */}
                   <img
-                    src={currentTrack.cover}
-                    alt=""
+                    src={currentTrack.cover} alt=""
                     className="absolute inset-0 w-full h-full object-cover scale-110"
                     style={{ filter: "blur(28px) brightness(0.25) saturate(0.6)" }}
                   />
-                  {/* Царапины */}
                   <div
                     className="absolute inset-0 pointer-events-none"
-                    style={{
-                      backgroundImage: "repeating-linear-gradient(97deg,transparent,transparent 5px,rgba(255,255,255,0.008) 5px,rgba(255,255,255,0.008) 6px)",
-                    }}
+                    style={{ backgroundImage: "repeating-linear-gradient(97deg,transparent,transparent 5px,rgba(255,255,255,0.008) 5px,rgba(255,255,255,0.008) 6px)" }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
 
-                  {/* Виниловый диск по центру */}
                   <div className="relative z-10 flex items-center justify-center py-8">
                     <VinylDisk cover={currentTrack.cover} isPlaying={isPlaying} size={220} />
                   </div>
 
-                  {/* Инфо снизу */}
                   <div className="absolute bottom-0 left-0 right-0 p-5 z-10">
                     <div className="flex items-end justify-between gap-4">
                       <div>
@@ -91,16 +105,13 @@ export default function PlayerPage({
                         <p className="text-white/55 mt-1.5 text-sm">
                           {currentTrack.artist}
                           {currentTrack.album ? ` · ${currentTrack.album}` : ""}
-                          {currentTrack.year ? ` · ${currentTrack.year}` : ""}
+                          {currentTrack.year  ? ` · ${currentTrack.year}`  : ""}
                         </p>
                       </div>
                       <button
                         onClick={() => onLike(currentTrack.id)}
                         className={`flex-shrink-0 flex items-center gap-1.5 transition-all px-3 py-1.5 rounded border
-                          ${liked
-                            ? "text-amber bg-amber/10 border-amber/40"
-                            : "text-white/30 hover:text-white/60 border-white/10"
-                          }`}
+                          ${liked ? "text-amber bg-amber/10 border-amber/40" : "text-white/30 hover:text-white/60 border-white/10"}`}
                       >
                         <Icon name="Heart" size={15} />
                         <span className="text-sm font-display">
@@ -113,12 +124,8 @@ export default function PlayerPage({
 
                 {/* Controls */}
                 <div className="p-5">
-                  {/* Progress bar */}
                   <div className="mb-5">
-                    <div
-                      className="relative h-1 rounded-full bg-white/10 cursor-pointer group mb-1.5"
-                      onClick={handleSeek}
-                    >
+                    <div className="relative h-1 rounded-full bg-white/10 cursor-pointer group mb-1.5" onClick={handleSeek}>
                       <div
                         className="progress-bar h-full rounded-full relative"
                         style={{ width: `${progress}%`, transition: "width 0.3s linear" }}
@@ -132,32 +139,17 @@ export default function PlayerPage({
                     </div>
                   </div>
 
-                  {/* Кнопки управления */}
                   <div className="flex items-center justify-center gap-7 mb-5">
                     <button className="text-white/20 hover:text-white/50 transition-colors">
                       <Icon name="Shuffle" size={16} />
                     </button>
-                    <button
-                      onClick={onPrev}
-                      className="text-white/50 hover:text-white transition-colors"
-                    >
+                    <button onClick={onPrev} className="text-white/50 hover:text-white transition-colors">
                       <Icon name="SkipBack" size={22} />
                     </button>
-                    <button
-                      onClick={onToggle}
-                      className="w-14 h-14 rounded grad-btn flex items-center justify-center animate-pulse-glow"
-                    >
-                      <Icon
-                        name={isPlaying ? "Pause" : "Play"}
-                        size={26}
-                        className="text-charcoal"
-                        style={{ marginLeft: isPlaying ? 0 : 2 } as React.CSSProperties}
-                      />
+                    <button onClick={onToggle} className="w-14 h-14 rounded grad-btn flex items-center justify-center animate-pulse-glow">
+                      <Icon name={isPlaying ? "Pause" : "Play"} size={26} className="text-charcoal" />
                     </button>
-                    <button
-                      onClick={onNext}
-                      className="text-white/50 hover:text-white transition-colors"
-                    >
+                    <button onClick={onNext} className="text-white/50 hover:text-white transition-colors">
                       <Icon name="SkipForward" size={22} />
                     </button>
                     <button className="text-white/20 hover:text-white/50 transition-colors">
@@ -165,7 +157,6 @@ export default function PlayerPage({
                     </button>
                   </div>
 
-                  {/* Громкость */}
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setPlayer(p => ({ ...p, volume: p.volume === 0 ? 80 : 0 }))}
@@ -183,29 +174,43 @@ export default function PlayerPage({
                 </div>
               </div>
 
-              {/* Текст песни — прокручивается синхронно */}
-              {currentTrack.lyrics && (
-                <div className="glass-card rounded-xl overflow-hidden animate-fade-in">
-                  <div className="flex items-center justify-between px-5 pt-4 pb-2">
-                    <h3 className="font-display text-xs tracking-widest text-foreground/30">
-                      ТЕКСТ ПЕСНИ
-                    </h3>
-                    {isPlaying && (
+              {/* Текст песни */}
+              <div className="glass-card rounded-xl overflow-hidden animate-fade-in">
+                <div className="flex items-center justify-between px-5 pt-4 pb-2">
+                  <h3 className="font-display text-xs tracking-widest text-foreground/30">ТЕКСТ ПЕСНИ</h3>
+                  <div className="flex items-center gap-3">
+                    {isPlaying && currentTrack.lyrics && (
                       <div className="flex items-end gap-[2px] h-3">
                         <span className="eq-bar" />
                         <span className="eq-bar" />
                         <span className="eq-bar" />
                       </div>
                     )}
+                    <button
+                      onClick={openEditor}
+                      className="flex items-center gap-1.5 text-xs text-foreground/30 hover:text-amber transition-colors px-2 py-1 rounded border border-white/5 hover:border-amber/30"
+                    >
+                      <Icon name={currentTrack.lyrics ? "Pencil" : "Plus"} size={12} />
+                      {currentTrack.lyrics ? "Изменить" : "Добавить текст"}
+                    </button>
                   </div>
+                </div>
+                {currentTrack.lyrics ? (
                   <LyricsScroller
                     lyrics={currentTrack.lyrics}
                     progress={progress}
                     durationSec={durationSec}
                     isPlaying={isPlaying}
                   />
-                </div>
-              )}
+                ) : (
+                  <div className="py-10 text-center text-foreground/20 text-sm font-body">
+                    Текст ещё не добавлен —{" "}
+                    <button onClick={openEditor} className="text-amber/60 hover:text-amber underline transition-colors">
+                      добавить
+                    </button>
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <div className="glass-card rounded-xl p-20 text-center">
@@ -245,11 +250,7 @@ export default function PlayerPage({
                       <Icon name="Play" size={12} className="text-white/40 hidden group-hover:block mx-auto" />
                     )}
                   </div>
-                  <img
-                    src={track.cover}
-                    alt=""
-                    className="w-8 h-8 rounded object-cover flex-shrink-0"
-                  />
+                  <img src={track.cover} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className={`text-xs font-semibold truncate ${active ? "grad-text font-display tracking-wide" : "text-foreground/75"}`}>
                       {track.title}
@@ -264,6 +265,63 @@ export default function PlayerPage({
         </div>
 
       </div>
+
+      {/* ── МОДАЛКА РЕДАКТОРА ТЕКСТА ─────────────────── */}
+      {lyricsEditorOpen && currentTrack && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+          <div className="glass-card neon-border rounded-xl w-full max-w-lg flex flex-col" style={{ maxHeight: "85vh" }}>
+
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/8 flex-shrink-0">
+              <div>
+                <h3 className="font-display text-lg tracking-widest text-foreground">ТЕКСТ ПЕСНИ</h3>
+                <p className="text-foreground/35 text-xs mt-0.5">{currentTrack.title} · {currentTrack.artist}</p>
+              </div>
+              <button onClick={() => setLyricsEditorOpen(false)} className="text-foreground/30 hover:text-foreground transition-colors p-1">
+                <Icon name="X" size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-hidden p-5">
+              <textarea
+                className="w-full h-full min-h-[280px] bg-white/4 border border-white/8 rounded-lg px-4 py-3 text-sm text-foreground/80 placeholder-foreground/20 focus:outline-none focus:border-amber/40 resize-none leading-7 font-body transition-colors"
+                placeholder={"Введи текст песни...\n\nКаждая строчка — отдельная строфа.\nПустая строка — разделитель куплетов."}
+                value={lyricsInput}
+                onChange={e => setLyricsInput(e.target.value)}
+                autoFocus
+              />
+            </div>
+
+            <p className="px-5 pb-2 text-foreground/20 text-xs flex-shrink-0">
+              Строки равномерно распределятся по длительности трека
+            </p>
+
+            <div className="flex gap-3 px-5 pb-5 flex-shrink-0">
+              <button
+                onClick={() => setLyricsEditorOpen(false)}
+                className="flex-1 py-2.5 rounded-lg border border-white/10 text-foreground/40 hover:text-foreground text-sm font-display tracking-wider transition-colors"
+              >
+                Отмена
+              </button>
+              {currentTrack.lyrics && (
+                <button
+                  onClick={deleteLyrics}
+                  className="px-4 py-2.5 rounded-lg border border-rust/30 text-rust/70 hover:text-rust hover:border-rust/60 text-sm font-display tracking-wider transition-colors"
+                >
+                  Удалить
+                </button>
+              )}
+              <button
+                onClick={saveLyrics}
+                disabled={!lyricsInput.trim()}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-display tracking-wider transition-all
+                  ${lyricsInput.trim() ? "grad-btn text-charcoal" : "bg-white/5 text-foreground/20 cursor-not-allowed"}`}
+              >
+                Сохранить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
