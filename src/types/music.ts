@@ -14,6 +14,7 @@ export interface Track {
   radioPlays?: number;  // кол-во прослушиваний в радио
   priority?: boolean;   // приоритет в радио (сердечко)
   audioUrl?: string;    // URL аудио на сервере
+  folder?: string;      // папка/альбом
 }
 
 export interface PlayerState {

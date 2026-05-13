@@ -4,6 +4,15 @@ import { Track } from "../types/music";
 import { PageName } from "../App";
 import { apiUploadAudio, apiSaveTracks } from "../api/tracks";
 
+function getFolderName(file: File): string | undefined {
+  const rel = (file as File & { webkitRelativePath?: string }).webkitRelativePath;
+  if (rel) {
+    const parts = rel.split("/");
+    if (parts.length >= 2) return parts[0];
+  }
+  return undefined;
+}
+
 interface Props {
   onAdd: (tracks: Track[]) => void;
   setPage: (p: PageName) => void;
@@ -56,12 +65,15 @@ export default function UploadPage({ onAdd, setPage }: Props) {
       const { title, artist } = parseTrackName(f.name);
       const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
 
+      const folder = getFolderName(f);
       const track: Track = {
         id,
         title:  title  || "Без названия",
         artist: artist || "Неизвестен",
         cover:  DEFAULT_COVER,
         duration: "0:00",
+        folder,
+        album: folder,
       };
 
       try {
@@ -138,12 +150,24 @@ export default function UploadPage({ onAdd, setPage }: Props) {
         onDrop={uploading ? undefined : handleDrop}
         onClick={() => !uploading && fileRef.current?.click()}
       >
+        {/* Обычные файлы */}
         <input
           ref={fileRef}
           type="file"
           multiple
           accept="audio/*,.mp3,.wav,.flac,.aac,.ogg,.m4a"
           className="hidden"
+          onChange={e => processFiles(e.target.files)}
+        />
+        {/* Выбор папки */}
+        <input
+          id="folder-input"
+          type="file"
+          multiple
+          accept="audio/*,.mp3,.wav,.flac,.aac,.ogg,.m4a"
+          className="hidden"
+          // @ts-expect-error webkitdirectory не в типах
+          webkitdirectory=""
           onChange={e => processFiles(e.target.files)}
         />
 
@@ -204,6 +228,17 @@ export default function UploadPage({ onAdd, setPage }: Props) {
           </>
         )}
       </div>
+
+      {/* Кнопка выбора папки */}
+      {!uploading && (
+        <button
+          onClick={() => document.getElementById("folder-input")?.click()}
+          className="w-full mt-4 py-3 rounded-2xl glass-card border border-white/10 flex items-center justify-center gap-3 text-white/60 hover:text-white transition-colors"
+        >
+          <Icon name="FolderOpen" size={18} />
+          <span className="font-display tracking-wider text-sm">Выбрать папку с телефона</span>
+        </button>
+      )}
 
       {error && !uploading && (
         <p className="text-center text-red-400/60 text-xs mt-4">{error}</p>

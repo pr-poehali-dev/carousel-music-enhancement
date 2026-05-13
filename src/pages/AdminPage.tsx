@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
 import { Track, Message } from "../types/music";
+import { apiDeleteFolder } from "../api/tracks";
 
 interface Props {
   tracks: Track[];
@@ -14,15 +15,20 @@ interface Props {
 type Tab = "tracks" | "messages";
 
 export default function AdminPage({ tracks, setTracks, messages, onReadMessage, onDeleteMessage, onTogglePriority }: Props) {
-  const [tab, setTab] = useState<Tab>("tracks");
-  const [search, setSearch] = useState("");
-  const [editTrack, setEditTrack] = useState<Track | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [tab, setTab]           = useState<Tab>("tracks");
+  const [activeFolder, setActiveFolder] = useState<string | null>(null); // null = все треки
+  const [search, setSearch]     = useState("");
+  const [editTrack, setEditTrack]       = useState<Track | null>(null);
+  const [confirmDelete, setConfirmDelete]     = useState<string | null>(null);
+  const [confirmDelFolder, setConfirmDelFolder] = useState<string | null>(null);
 
-  const filtered = tracks.filter(t =>
-    t.title.toLowerCase().includes(search.toLowerCase()) ||
-    t.artist.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = tracks.filter(t => {
+    const inFolder = activeFolder === null || t.folder === activeFolder;
+    const matchSearch = !search ||
+      t.title.toLowerCase().includes(search.toLowerCase()) ||
+      t.artist.toLowerCase().includes(search.toLowerCase());
+    return inFolder && matchSearch;
+  });
 
   const deleteTrack = (id: string) => {
     setTracks(prev => prev.filter(t => t.id !== id));
@@ -35,9 +41,17 @@ export default function AdminPage({ tracks, setTracks, messages, onReadMessage, 
     setEditTrack(null);
   };
 
-  const artists = [...new Set(tracks.map(t => t.artist))];
-  const genres = [...new Set(tracks.map(t => t.genre).filter(Boolean))];
+  const artists  = [...new Set(tracks.map(t => t.artist))];
+  const genres   = [...new Set(tracks.map(t => t.genre).filter(Boolean))];
+  const folders  = [...new Set(tracks.map(t => t.folder).filter(Boolean))] as string[];
   const unreadCount = messages.filter(m => !m.isRead).length;
+
+  const deleteFolderConfirmed = async (folder: string) => {
+    setTracks(prev => prev.filter(t => t.folder !== folder));
+    await apiDeleteFolder(folder).catch(() => {});
+    setConfirmDelFolder(null);
+    if (activeFolder === folder) setActiveFolder(null);
+  };
 
   const formatDate = (iso: string) => {
     const d = new Date(iso);
@@ -98,6 +112,44 @@ export default function AdminPage({ tracks, setTracks, messages, onReadMessage, 
       {/* TRACKS TAB */}
       {tab === "tracks" && (
         <div className="glass-card rounded-3xl p-6">
+
+          {/* Папки */}
+          {folders.length > 0 && (
+            <div className="mb-5">
+              <div className="flex items-center gap-2 mb-2">
+                <Icon name="FolderOpen" size={13} className="text-white/30" />
+                <span className="text-white/30 text-xs uppercase tracking-widest">Папки</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setActiveFolder(null)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-display tracking-wider transition-all
+                    ${activeFolder === null ? "grad-btn text-white" : "glass-card text-white/50 border border-white/10 hover:text-white"}`}
+                >
+                  Все треки ({tracks.length})
+                </button>
+                {folders.map(f => (
+                  <div key={f} className="flex items-center gap-1">
+                    <button
+                      onClick={() => setActiveFolder(f === activeFolder ? null : f)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-display tracking-wider transition-all
+                        ${activeFolder === f ? "grad-btn text-white" : "glass-card text-white/50 border border-white/10 hover:text-white"}`}
+                    >
+                      📁 {f} ({tracks.filter(t => t.folder === f).length})
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelFolder(f)}
+                      className="p-1.5 rounded-lg bg-red-500/10 text-red-400/50 hover:text-red-400 transition-colors"
+                      title="Удалить папку"
+                    >
+                      <Icon name="Trash2" size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-4 mb-6">
             <div className="relative flex-1">
               <Icon name="Search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
@@ -305,6 +357,32 @@ export default function AdminPage({ tracks, setTracks, messages, onReadMessage, 
               </button>
               <button onClick={() => deleteTrack(confirmDelete)} className="flex-1 py-2.5 rounded-xl bg-red-500/80 hover:bg-red-500 text-white text-sm font-display tracking-wider transition-colors">
                 Удалить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm delete folder */}
+      {confirmDelFolder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+          <div className="glass-card rounded-3xl p-6 w-full max-w-sm text-center">
+            <div className="w-14 h-14 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4">
+              <Icon name="FolderOpen" size={24} className="text-red-400" />
+            </div>
+            <h3 className="font-display text-xl font-bold text-white mb-1 tracking-wider">УДАЛИТЬ ПАПКУ?</h3>
+            <p className="text-amber text-sm mb-1">📁 {confirmDelFolder}</p>
+            <p className="text-white/40 text-sm mb-6">
+              Удалятся все {tracks.filter(t => t.folder === confirmDelFolder).length} треков из этой папки
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmDelFolder(null)}
+                className="flex-1 py-2.5 rounded-xl glass-card text-white/60 hover:text-white text-sm font-display tracking-wider border border-white/10 transition-colors">
+                Отмена
+              </button>
+              <button onClick={() => deleteFolderConfirmed(confirmDelFolder)}
+                className="flex-1 py-2.5 rounded-xl bg-red-500/80 hover:bg-red-500 text-white text-sm font-display tracking-wider transition-colors">
+                Удалить всё
               </button>
             </div>
           </div>

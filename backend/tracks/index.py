@@ -26,72 +26,70 @@ def handler(event: dict, context) -> dict:
     cur  = conn.cursor(cursor_factory=RealDictCursor)
 
     try:
-        # GET /tracks — список всех треков
+        # GET — список всех треков
         if method == "GET" or action == "list":
             cur.execute(f"""
-                SELECT id, title, artist, album, duration, cover, genre, year,
-                       lyrics, priority, plays, radio_plays
+                SELECT id, title, artist, album, folder, duration, cover, genre, year,
+                       lyrics, priority, plays, radio_plays, audio_url
                 FROM {SCHEMA}.tracks
-                ORDER BY created_at ASC
+                ORDER BY folder NULLS LAST, created_at ASC
             """)
-            rows = cur.fetchall()
-            tracks = [dict(r) for r in rows]
+            tracks = [dict(r) for r in cur.fetchall()]
             return {"statusCode": 200, "headers": CORS, "body": json.dumps({"tracks": tracks})}
 
-        # Сохранить новые треки (batch)
+        # Сохранить треки (batch)
         if action == "save":
-            new_tracks = body.get("tracks", [])
-            for t in new_tracks:
+            for t in body.get("tracks", []):
                 cur.execute(f"""
                     INSERT INTO {SCHEMA}.tracks
-                        (id, title, artist, album, duration, cover, genre, year, lyrics)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        (id, title, artist, album, folder, duration, cover, genre, year, lyrics)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (id) DO UPDATE SET
                         title    = EXCLUDED.title,
                         artist   = EXCLUDED.artist,
                         album    = EXCLUDED.album,
+                        folder   = EXCLUDED.folder,
                         duration = EXCLUDED.duration,
                         cover    = EXCLUDED.cover,
                         genre    = EXCLUDED.genre,
                         year     = EXCLUDED.year,
                         lyrics   = EXCLUDED.lyrics
                 """, (
-                    t["id"], t["title"], t.get("artist",""),
-                    t.get("album"), t.get("duration","0:00"),
-                    t.get("cover",""), t.get("genre"), t.get("year"),
-                    t.get("lyrics",""),
+                    t["id"], t["title"], t.get("artist", ""),
+                    t.get("album"), t.get("folder"),
+                    t.get("duration", "0:00"), t.get("cover", ""),
+                    t.get("genre"), t.get("year"), t.get("lyrics", ""),
                 ))
             conn.commit()
-            return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "saved": len(new_tracks)})}
+            return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
+
+        # Удалить всю папку
+        if action == "delete_folder":
+            folder = body.get("folder")
+            cur.execute(f"DELETE FROM {SCHEMA}.tracks WHERE folder = %s", (folder,))
+            conn.commit()
+            return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
 
         # Инкремент прослушиваний
         if action == "inc_plays":
-            track_id = body.get("id")
-            mode     = body.get("mode", "manual")  # "manual" | "radio"
-            field    = "radio_plays" if mode == "radio" else "plays"
-            cur.execute(f"""
-                UPDATE {SCHEMA}.tracks SET {field} = {field} + 1 WHERE id = %s
-            """, (track_id,))
+            field = "radio_plays" if body.get("mode") == "radio" else "plays"
+            cur.execute(f"UPDATE {SCHEMA}.tracks SET {field} = {field} + 1 WHERE id = %s", (body.get("id"),))
             conn.commit()
             return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
 
         # Переключить приоритет
         if action == "toggle_priority":
-            track_id = body.get("id")
             cur.execute(f"""
-                UPDATE {SCHEMA}.tracks
-                SET priority = NOT priority
-                WHERE id = %s
-                RETURNING priority
-            """, (track_id,))
+                UPDATE {SCHEMA}.tracks SET priority = NOT priority
+                WHERE id = %s RETURNING priority
+            """, (body.get("id"),))
             row = cur.fetchone()
             conn.commit()
             return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "priority": row["priority"]})}
 
-        # Удалить трек
+        # Удалить один трек
         if action == "delete":
-            track_id = body.get("id")
-            cur.execute(f"DELETE FROM {SCHEMA}.tracks WHERE id = %s", (track_id,))
+            cur.execute(f"DELETE FROM {SCHEMA}.tracks WHERE id = %s", (body.get("id"),))
             conn.commit()
             return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
 

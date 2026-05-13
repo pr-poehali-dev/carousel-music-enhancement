@@ -22,6 +22,7 @@ export async function apiListTracks(): Promise<Track[]> {
     plays:      t.plays ?? 0,
     radioPlays: t.radio_plays ?? 0,
     audioUrl:   t.audio_url ?? undefined,
+    folder:     t.folder ?? undefined,
   }));
 }
 
@@ -75,5 +76,13 @@ export async function apiDeleteTrack(id: string): Promise<void> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "delete", id }),
+  });
+}
+
+export async function apiDeleteFolder(folder: string): Promise<void> {
+  await fetch(URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "delete_folder", folder }),
   });
 }
