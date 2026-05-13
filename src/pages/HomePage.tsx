@@ -33,7 +33,7 @@ export default function HomePage({ tracks, onPlay, setPage, player, onToggle }: 
         <div className="mb-6 glass-card px-5 py-3 rounded-2xl flex items-center gap-3 max-w-sm w-full">
           <Icon name="Info" size={16} className="text-amber flex-shrink-0" />
           <p className="text-white/60 text-xs leading-relaxed flex-1">
-            Тяни для вращения, тапни по обложке чтобы включить трек
+            Кубик крутится сам — тапни по обложке чтобы включить трек
           </p>
           <button onClick={() => setHint(false)} className="text-white/30 hover:text-white/60">
             <Icon name="X" size={14} />

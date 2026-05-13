@@ -1,9 +1,38 @@
-import { useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Track, PlayerState } from "../types/music";
 
 const GRID = 5;
-const FACES = ["front", "back", "left", "right", "top", "bottom"] as const;
-type Face = typeof FACES[number];
+
+// 6 граней — каждая своим цветом и своя поворотная позиция
+const FACES = [
+  { name: "front",  rotX:   0, rotY:   0, color: "rgba(220,60,60,0.55)",    border: "#e03c3c" },
+  { name: "right",  rotX:   0, rotY:  90, color: "rgba(60,140,220,0.55)",   border: "#3c8cdc" },
+  { name: "back",   rotX:   0, rotY: 180, color: "rgba(50,180,100,0.55)",   border: "#32b464" },
+  { name: "left",   rotX:   0, rotY: -90, color: "rgba(220,170,40,0.55)",   border: "#dcaa28" },
+  { name: "top",    rotX:  90, rotY:   0, color: "rgba(255,255,255,0.45)",  border: "#cccccc" },
+  { name: "bottom", rotX: -90, rotY:   0, color: "rgba(160,60,220,0.55)",   border: "#a03cdc" },
+] as const;
+
+const faceTransforms: Record<string, string> = {
+  front:  "rotateY(0deg)   translateZ(var(--half))",
+  right:  "rotateY(90deg)  translateZ(var(--half))",
+  back:   "rotateY(180deg) translateZ(var(--half))",
+  left:   "rotateY(-90deg) translateZ(var(--half))",
+  top:    "rotateX(90deg)  translateZ(var(--half))",
+  bottom: "rotateX(-90deg) translateZ(var(--half))",
+};
+
+// Последовательность поворотов куба чтобы каждая грань выходила на первый план
+const SEQUENCE = [
+  { rotX:  -15, rotY:    0 },  // front
+  { rotX:  -15, rotY:  -90 },  // right
+  { rotX:  -15, rotY: -180 },  // back
+  { rotX:  -15, rotY: -270 },  // left
+  { rotX:  -90, rotY:    0 },  // top
+  { rotX:   90, rotY:    0 },  // bottom
+];
+
+const STEP_DURATION = 3500; // мс на каждую грань
 
 interface Props {
   tracks: Track[];
@@ -11,203 +40,176 @@ interface Props {
   onPlay: (t: Track) => void;
 }
 
-const faceTransforms: Record<Face, string> = {
-  front:  "rotateY(0deg)   translateZ(var(--half))",
-  back:   "rotateY(180deg) translateZ(var(--half))",
-  left:   "rotateY(-90deg) translateZ(var(--half))",
-  right:  "rotateY(90deg)  translateZ(var(--half))",
-  top:    "rotateX(90deg)  translateZ(var(--half))",
-  bottom: "rotateX(-90deg) translateZ(var(--half))",
-};
-
-const faceColors: Record<Face, string> = {
-  front:  "rgba(255,80,80,0.15)",
-  back:   "rgba(80,140,255,0.15)",
-  left:   "rgba(255,200,80,0.15)",
-  right:  "rgba(80,255,140,0.15)",
-  top:    "rgba(255,255,255,0.12)",
-  bottom: "rgba(180,80,255,0.15)",
-};
-
 export default function RubiksCube({ tracks, player, onPlay }: Props) {
-  const [rotX, setRotX] = useState(-25);
-  const [rotY, setRotY] = useState(30);
-  const dragRef = useRef<{ x: number; y: number; active: boolean }>({ x: 0, y: 0, active: false });
-  const velRef  = useRef({ x: 0, y: 0 });
-  const rafRef  = useRef<number>(0);
-  const rotRef  = useRef({ x: -25, y: 30 });
-  const isDragging = useRef(false);
+  const [step, setStep]   = useState(0);
+  const [rotX, setRotX]   = useState(SEQUENCE[0].rotX);
+  const [rotY, setRotY]   = useState(SEQUENCE[0].rotY);
+  const [paused, setPaused] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const startInertia = useCallback(() => {
-    cancelAnimationFrame(rafRef.current);
-    const step = () => {
-      velRef.current.x *= 0.93;
-      velRef.current.y *= 0.93;
-      if (Math.abs(velRef.current.x) < 0.05 && Math.abs(velRef.current.y) < 0.05) return;
-      rotRef.current.x += velRef.current.x;
-      rotRef.current.y += velRef.current.y;
-      setRotX(rotRef.current.x);
-      setRotY(rotRef.current.y);
-      rafRef.current = requestAnimationFrame(step);
-    };
-    rafRef.current = requestAnimationFrame(step);
-  }, []);
+  const goToStep = (s: number) => {
+    const pos = SEQUENCE[s % SEQUENCE.length];
+    setStep(s % SEQUENCE.length);
+    setRotX(pos.rotX);
+    setRotY(pos.rotY);
+  };
 
-  const onPointerDown = useCallback((e: React.PointerEvent) => {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    dragRef.current = { x: e.clientX, y: e.clientY, active: true };
-    isDragging.current = false;
-    velRef.current = { x: 0, y: 0 };
-    cancelAnimationFrame(rafRef.current);
-  }, []);
+  useEffect(() => {
+    if (paused) return;
+    timerRef.current = setTimeout(() => {
+      goToStep(step + 1);
+    }, STEP_DURATION);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [step, paused]);
 
-  const onPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragRef.current.active) return;
-    const dx = e.clientX - dragRef.current.x;
-    const dy = e.clientY - dragRef.current.y;
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) isDragging.current = true;
-    velRef.current.y = dx * 0.4;
-    velRef.current.x = -dy * 0.4;
-    rotRef.current.x += velRef.current.x;
-    rotRef.current.y += velRef.current.y;
-    setRotX(rotRef.current.x);
-    setRotY(rotRef.current.y);
-    dragRef.current.x = e.clientX;
-    dragRef.current.y = e.clientY;
-  }, []);
+  const handleClick = (track: Track) => {
+    onPlay(track);
+    setPaused(true);
+    // через 8 секунд после нажатия возобновляем авторотацию
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      setPaused(false);
+    }, 8000);
+  };
 
-  const onPointerUp = useCallback(() => {
-    dragRef.current.active = false;
-    startInertia();
-  }, [startInertia]);
-
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
-    const t = e.touches[0];
-    dragRef.current = { x: t.clientX, y: t.clientY, active: true };
-    isDragging.current = false;
-    velRef.current = { x: 0, y: 0 };
-    cancelAnimationFrame(rafRef.current);
-  }, []);
-
-  const onTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!dragRef.current.active) return;
-    e.preventDefault();
-    const t = e.touches[0];
-    const dx = t.clientX - dragRef.current.x;
-    const dy = t.clientY - dragRef.current.y;
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) isDragging.current = true;
-    velRef.current.y = dx * 0.4;
-    velRef.current.x = -dy * 0.4;
-    rotRef.current.x += velRef.current.x;
-    rotRef.current.y += velRef.current.y;
-    setRotX(rotRef.current.x);
-    setRotY(rotRef.current.y);
-    dragRef.current.x = t.clientX;
-    dragRef.current.y = t.clientY;
-  }, []);
-
-  const onTouchEnd = useCallback(() => {
-    dragRef.current.active = false;
-    startInertia();
-  }, [startInertia]);
-
-  const handleCellClick = useCallback((track: Track) => {
-    if (!isDragging.current) onPlay(track);
-  }, [onPlay]);
-
-  const size = Math.min(typeof window !== "undefined" ? window.innerWidth * 0.72 : 360, 420);
-  const cellSize = size / GRID;
+  const size = Math.min(
+    typeof window !== "undefined" ? Math.min(window.innerWidth * 0.78, window.innerHeight * 0.52) : 340,
+    400
+  );
   const half = size / 2;
+  const cellSize = size / GRID;
+  const gap = 3;
 
   return (
-    <div
-      className="select-none cursor-grab active:cursor-grabbing"
-      style={{ width: size, height: size, perspective: size * 2.2 }}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerLeave={onPointerUp}
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
-    >
-      <div
-        style={{
-          width: size,
-          height: size,
-          position: "relative",
-          transformStyle: "preserve-3d",
-          transform: `rotateX(${rotX}deg) rotateY(${rotY}deg)`,
-          transition: dragRef.current.active ? "none" : "transform 0.05s linear",
-          ["--half" as string]: `${half}px`,
-        }}
-      >
-        {FACES.map((face, fi) => {
-          const faceOffset = fi * GRID * GRID;
-          return (
+    <div className="flex flex-col items-center gap-6 select-none">
+
+      {/* Индикатор текущей грани */}
+      <div className="flex gap-2 items-center">
+        {FACES.map((f, i) => (
+          <button
+            key={f.name}
+            onClick={() => { goToStep(i); setPaused(true); setTimeout(() => setPaused(false), 8000); }}
+            style={{
+              width: i === step ? 22 : 8,
+              height: 8,
+              borderRadius: 4,
+              background: i === step ? f.border : "rgba(255,255,255,0.15)",
+              transition: "all 0.4s ease",
+              border: "none",
+              cursor: "pointer",
+              padding: 0,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Куб */}
+      <div style={{ width: size, height: size, perspective: size * 2.8 }}>
+        <div
+          style={{
+            width: size,
+            height: size,
+            position: "relative",
+            transformStyle: "preserve-3d",
+            transform: `rotateX(${rotX}deg) rotateY(${rotY}deg)`,
+            transition: "transform 1.1s cubic-bezier(0.45, 0, 0.25, 1)",
+            ["--half" as string]: `${half}px`,
+          }}
+        >
+          {FACES.map((face, fi) => (
             <div
-              key={face}
+              key={face.name}
               style={{
                 position: "absolute",
                 width: size,
                 height: size,
                 transformStyle: "preserve-3d",
-                transform: faceTransforms[face],
+                transform: faceTransforms[face.name],
                 backfaceVisibility: "hidden",
-                background: faceColors[face],
-                border: "2px solid rgba(255,255,255,0.08)",
-                borderRadius: 12,
+                background: face.color,
+                border: `3px solid ${face.border}`,
+                borderRadius: 14,
                 display: "grid",
                 gridTemplateColumns: `repeat(${GRID}, 1fr)`,
                 gridTemplateRows: `repeat(${GRID}, 1fr)`,
-                gap: 3,
+                gap,
                 padding: 6,
                 boxSizing: "border-box",
+                boxShadow: step === fi
+                  ? `0 0 40px ${face.border}88, inset 0 0 20px ${face.border}33`
+                  : "none",
               }}
             >
               {Array.from({ length: GRID * GRID }, (_, ci) => {
-                const trackIdx = (faceOffset + ci) % tracks.length;
+                const trackIdx = (fi * GRID * GRID + ci) % tracks.length;
                 const track = tracks[trackIdx];
                 const isActive = player.currentTrack?.id === track.id;
                 return (
                   <div
                     key={ci}
-                    onClick={() => handleCellClick(track)}
+                    onClick={() => handleClick(track)}
                     style={{
-                      width: cellSize - 9,
-                      height: cellSize - 9,
-                      borderRadius: 6,
+                      borderRadius: 5,
                       overflow: "hidden",
                       cursor: "pointer",
                       position: "relative",
-                      border: isActive ? "2px solid #f5a623" : "2px solid rgba(255,255,255,0.1)",
-                      boxShadow: isActive ? "0 0 10px rgba(245,166,35,0.6)" : "none",
+                      border: isActive
+                        ? "2px solid #f5a623"
+                        : `1px solid ${face.border}66`,
+                      boxShadow: isActive ? "0 0 10px rgba(245,166,35,0.7)" : "none",
                       transition: "border 0.2s, box-shadow 0.2s",
-                      flexShrink: 0,
                     }}
                   >
                     <img
                       src={track.cover}
                       alt={track.title}
                       draggable={false}
-                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", pointerEvents: "none" }}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        display: "block",
+                        pointerEvents: "none",
+                      }}
                     />
                     {isActive && (
                       <div style={{
                         position: "absolute", inset: 0,
-                        background: "rgba(245,166,35,0.35)",
+                        background: "rgba(245,166,35,0.4)",
                         display: "flex", alignItems: "center", justifyContent: "center",
                       }}>
-                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#f5a623", boxShadow: "0 0 8px #f5a623" }} />
+                        <div style={{
+                          width: 8, height: 8, borderRadius: "50%",
+                          background: "#f5a623", boxShadow: "0 0 10px #f5a623",
+                        }} />
                       </div>
                     )}
                   </div>
                 );
               })}
             </div>
-          );
-        })}
+          ))}
+        </div>
       </div>
+
+      {/* Пауза / воспроизведение авторотации */}
+      <button
+        onClick={() => setPaused(p => !p)}
+        style={{
+          background: "rgba(255,255,255,0.06)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: 20,
+          padding: "6px 18px",
+          color: "rgba(255,255,255,0.45)",
+          fontSize: 11,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          cursor: "pointer",
+          fontFamily: "inherit",
+        }}
+      >
+        {paused ? "▶  Авторотация" : "⏸  Пауза"}
+      </button>
     </div>
   );
 }
