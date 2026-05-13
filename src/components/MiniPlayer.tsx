@@ -63,23 +63,33 @@ export default function MiniPlayer({ player, onToggle, onOpen, onNext, onPrev, s
 
           {/* Controls */}
           <div className="flex items-center gap-1">
-            <button onClick={onPrev} className="p-2 text-foreground/40 hover:text-foreground transition-colors hidden sm:block">
+            <button onClick={onPrev} className="flex flex-col items-center gap-0.5 p-1.5 text-foreground/40 hover:text-foreground transition-colors hidden sm:flex">
               <Icon name="SkipBack" size={17} />
+              <span className="text-[8px] uppercase tracking-wider leading-none">Назад</span>
             </button>
             <button
               onClick={onToggle}
-              className="w-9 h-9 rounded grad-btn flex items-center justify-center flex-shrink-0"
+              className="flex flex-col items-center gap-0.5 flex-shrink-0"
             >
-              <Icon name={isPlaying ? "Pause" : "Play"} size={16} className="text-charcoal" />
+              <div className="w-9 h-9 rounded grad-btn flex items-center justify-center">
+                <Icon name={isPlaying ? "Pause" : "Play"} size={16} className="text-charcoal" />
+              </div>
+              <span className="text-[8px] text-foreground/25 uppercase tracking-wider leading-none">
+                {isPlaying ? "Пауза" : "Играть"}
+              </span>
             </button>
-            <button onClick={onNext} className="p-2 text-foreground/40 hover:text-foreground transition-colors hidden sm:block">
+            <button onClick={onNext} className="flex flex-col items-center gap-0.5 p-1.5 text-foreground/40 hover:text-foreground transition-colors hidden sm:flex">
               <Icon name="SkipForward" size={17} />
+              <span className="text-[8px] uppercase tracking-wider leading-none">Далее</span>
             </button>
           </div>
 
           {/* Volume */}
           <div className="hidden md:flex items-center gap-2">
-            <Icon name="Volume2" size={14} className="text-foreground/30" />
+            <div className="flex flex-col items-center gap-0.5">
+              <Icon name="Volume2" size={14} className="text-foreground/30" />
+              <span className="text-[8px] text-foreground/20 uppercase tracking-wider leading-none">Звук</span>
+            </div>
             <input
               type="range" min={0} max={100} value={volume}
               onChange={e => setPlayer(p => ({ ...p, volume: Number(e.target.value) }))}
@@ -87,8 +97,9 @@ export default function MiniPlayer({ player, onToggle, onOpen, onNext, onPrev, s
             />
           </div>
 
-          <button onClick={onOpen} className="text-foreground/30 hover:text-foreground transition-colors">
+          <button onClick={onOpen} className="flex flex-col items-center gap-0.5 text-foreground/30 hover:text-foreground transition-colors">
             <Icon name="ChevronUp" size={18} />
+            <span className="text-[8px] uppercase tracking-wider leading-none">Открыть</span>
           </button>
         </div>
       </div>

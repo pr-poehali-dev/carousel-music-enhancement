@@ -76,24 +76,34 @@ export default function HomePage({
           {/* Сердечко — приоритет в радио */}
           <button
             onClick={() => onTogglePriority(cur.id)}
-            className="flex-shrink-0 transition-transform active:scale-125"
-            title="Приоритет в радио"
+            className="flex-shrink-0 flex flex-col items-center gap-0.5 transition-transform active:scale-125"
           >
             <span style={{ fontSize: 20, lineHeight: 1 }}>
               {cur.priority ? "❤️" : "🤍"}
             </span>
+            <span className={`text-[9px] uppercase tracking-wider leading-none ${cur.priority ? "text-red-400" : "text-white/30"}`}>
+              {cur.priority ? "Кайфую" : "Кайфую?"}
+            </span>
           </button>
           <button
             onClick={onToggle}
-            className="w-9 h-9 rounded-full grad-btn flex items-center justify-center flex-shrink-0"
+            className="flex flex-col items-center gap-0.5 w-9 flex-shrink-0"
           >
-            <Icon name={player.isPlaying ? "Pause" : "Play"} size={16} className="text-white" />
+            <div className="w-9 h-9 rounded-full grad-btn flex items-center justify-center">
+              <Icon name={player.isPlaying ? "Pause" : "Play"} size={16} className="text-white" />
+            </div>
+            <span className="text-[9px] text-white/25 uppercase tracking-wider leading-none">
+              {player.isPlaying ? "Пауза" : "Играть"}
+            </span>
           </button>
           <button
             onClick={() => setPage("player")}
-            className="w-9 h-9 rounded-full glass-card flex items-center justify-center flex-shrink-0 border border-white/10"
+            className="flex flex-col items-center gap-0.5 flex-shrink-0"
           >
-            <Icon name="Maximize2" size={14} className="text-white/55" />
+            <div className="w-9 h-9 rounded-full glass-card flex items-center justify-center border border-white/10">
+              <Icon name="Maximize2" size={14} className="text-white/55" />
+            </div>
+            <span className="text-[9px] text-white/25 uppercase tracking-wider leading-none">Плеер</span>
           </button>
         </div>
       )}
