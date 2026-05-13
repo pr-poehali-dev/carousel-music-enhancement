@@ -25,29 +25,53 @@ export default function App() {
   });
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
   const [messages, setMessages] = useState<Message[]>([]);
+  const [radioMode, setRadioMode] = useState(false);
 
   const { seekTo } = useAudioPlayer({ player, tracks, setPlayer });
 
-  const playTrack = (track: Track) =>
+  // Счётчик прослушиваний
+  const incPlays = (id: string, mode: "manual" | "radio") => {
+    setTracks(prev => prev.map(t => t.id === id
+      ? { ...t,
+          plays:      mode === "manual" ? (t.plays ?? 0) + 1 : (t.plays ?? 0),
+          radioPlays: mode === "radio"  ? (t.radioPlays ?? 0) + 1 : (t.radioPlays ?? 0),
+        }
+      : t
+    ));
+  };
+
+  const playTrack = (track: Track, mode: "manual" | "radio" = "manual") => {
+    incPlays(track.id, mode);
     setPlayer(p => ({ ...p, currentTrack: track, isPlaying: true, progress: 0 }));
+  };
 
   const togglePlay = () => setPlayer(p => ({ ...p, isPlaying: !p.isPlaying }));
 
   const playNext = () => {
     const idx = tracks.findIndex(t => t.id === player.currentTrack?.id);
     const next = tracks[idx + 1] ?? tracks[0];
-    playTrack(next);
+    playTrack(next, radioMode ? "radio" : "manual");
   };
   const playPrev = () => {
     const idx = tracks.findIndex(t => t.id === player.currentTrack?.id);
     const prev = tracks[idx - 1] ?? tracks[tracks.length - 1];
-    playTrack(prev);
+    playTrack(prev, radioMode ? "radio" : "manual");
   };
 
+  // Радио: сначала приоритетные (priority=true), потом остальные в случайном порядке
   const playRadio = () => {
-    const shuffled = [...tracks].sort(() => Math.random() - 0.5);
-    playTrack(shuffled[0]);
+    setRadioMode(true);
+    const priority = tracks.filter(t => t.priority);
+    const rest     = tracks.filter(t => !t.priority).sort(() => Math.random() - 0.5);
+    const queue    = [...priority.sort(() => Math.random() - 0.5), ...rest];
+    playTrack(queue[0], "radio");
   };
+
+  const stopRadio = () => setRadioMode(false);
+
+  // Переключение приоритета (сердечко)
+  const togglePriority = (id: string) =>
+    setTracks(prev => prev.map(t => t.id === id ? { ...t, priority: !t.priority } : t));
 
   const addTracks = (newTracks: Track[]) =>
     setTracks(prev => [...newTracks, ...prev]);
@@ -81,6 +105,9 @@ export default function App() {
             onLike={handleLike} likedIds={likedIds}
             onMessage={handleMessage}
             onRadio={playRadio}
+            onStopRadio={stopRadio}
+            radioMode={radioMode}
+            onTogglePriority={togglePriority}
           />
         )}
         {page === "player" && (
@@ -109,6 +136,7 @@ export default function App() {
               messages={messages}
               onReadMessage={handleReadMsg}
               onDeleteMessage={handleDeleteMsg}
+              onTogglePriority={togglePriority}
             />
           </AdminGate>
         )}

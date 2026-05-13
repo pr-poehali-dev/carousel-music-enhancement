@@ -8,11 +8,12 @@ interface Props {
   messages: Message[];
   onReadMessage: (id: string) => void;
   onDeleteMessage: (id: string) => void;
+  onTogglePriority: (id: string) => void;
 }
 
 type Tab = "tracks" | "messages";
 
-export default function AdminPage({ tracks, setTracks, messages, onReadMessage, onDeleteMessage }: Props) {
+export default function AdminPage({ tracks, setTracks, messages, onReadMessage, onDeleteMessage, onTogglePriority }: Props) {
   const [tab, setTab] = useState<Tab>("tracks");
   const [search, setSearch] = useState("");
   const [editTrack, setEditTrack] = useState<Track | null>(null);
@@ -53,10 +54,10 @@ export default function AdminPage({ tracks, setTracks, messages, onReadMessage, 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         {[
-          { icon: "Music", label: "Всего треков", val: tracks.length, color: "text-neon-pink" },
-          { icon: "Users", label: "Артистов", val: artists.length, color: "text-neon-purple" },
-          { icon: "Tag", label: "Жанров", val: genres.length, color: "text-neon-orange" },
-          { icon: "MessageCircle", label: "Сообщений", val: messages.length, color: "text-neon-yellow", badge: unreadCount },
+          { icon: "Music",         label: "Всего треков",  val: tracks.length, color: "text-neon-pink" },
+          { icon: "Users",         label: "Артистов",      val: artists.length, color: "text-neon-purple" },
+          { icon: "Headphones",    label: "Прослушано",    val: tracks.reduce((s,t) => s + (t.plays ?? 0), 0), color: "text-neon-orange" },
+          { icon: "Radio",         label: "В радио",       val: tracks.reduce((s,t) => s + (t.radioPlays ?? 0), 0), color: "text-neon-yellow", badge: unreadCount },
         ].map(s => (
           <div key={s.label} className="glass-card rounded-2xl p-5 animate-fade-in relative">
             <Icon name={s.icon} fallback="Music" size={24} className={`${s.color} mb-3`} />
@@ -118,7 +119,9 @@ export default function AdminPage({ tracks, setTracks, messages, onReadMessage, 
                   <th className="text-left text-xs text-white/30 uppercase tracking-widest pb-3 font-display pr-4">Трек</th>
                   <th className="text-left text-xs text-white/30 uppercase tracking-widest pb-3 font-display pr-4 hidden sm:table-cell">Артист</th>
                   <th className="text-left text-xs text-white/30 uppercase tracking-widest pb-3 font-display pr-4 hidden md:table-cell">Жанр</th>
-                  <th className="text-left text-xs text-white/30 uppercase tracking-widest pb-3 font-display hidden md:table-cell">Лайки</th>
+                  <th className="text-left text-xs text-white/30 uppercase tracking-widest pb-3 font-display pr-4 hidden md:table-cell">▶ Ручн.</th>
+                  <th className="text-left text-xs text-white/30 uppercase tracking-widest pb-3 font-display pr-4 hidden md:table-cell">📻 Радио</th>
+                  <th className="text-left text-xs text-white/30 uppercase tracking-widest pb-3 font-display hidden md:table-cell">♥</th>
                   <th className="text-right text-xs text-white/30 uppercase tracking-widest pb-3 font-display">Действия</th>
                 </tr>
               </thead>
@@ -138,11 +141,16 @@ export default function AdminPage({ tracks, setTracks, messages, onReadMessage, 
                         <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/50">{track.genre}</span>
                       )}
                     </td>
+                    <td className="py-3 pr-4 hidden md:table-cell text-white/60 text-sm">
+                      {track.plays ? <span className="flex items-center gap-1"><Icon name="Headphones" size={11} className="text-amber" />{track.plays}</span> : <span className="text-white/20">—</span>}
+                    </td>
+                    <td className="py-3 pr-4 hidden md:table-cell text-white/60 text-sm">
+                      {track.radioPlays ? <span className="flex items-center gap-1"><Icon name="Radio" size={11} className="text-neon-blue" />{track.radioPlays}</span> : <span className="text-white/20">—</span>}
+                    </td>
                     <td className="py-3 hidden md:table-cell">
-                      <span className="flex items-center gap-1 text-neon-pink text-sm">
-                        <Icon name="Heart" size={12} />
-                        {track.likes ?? 0}
-                      </span>
+                      <button onClick={() => onTogglePriority(track.id)} className="text-lg transition-transform active:scale-125">
+                        {track.priority ? "❤️" : "🤍"}
+                      </button>
                     </td>
                     <td className="py-3 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

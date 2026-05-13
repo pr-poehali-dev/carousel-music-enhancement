@@ -41,18 +41,18 @@ interface Props {
   player: PlayerState;
   onPlay: (t: Track) => void;
   onRadio: () => void;
+  radioMode: boolean;
+  onTogglePriority: (id: string) => void;
 }
 
-export default function RubiksCube({ tracks, player, onPlay, onRadio }: Props) {
+export default function RubiksCube({ tracks, player, onPlay, onRadio, radioMode, onTogglePriority }: Props) {
   const [step, setStep]         = useState(0);
   const [rotX, setRotX]         = useState(SEQUENCE[0].rotX);
   const [rotY, setRotY]         = useState(SEQUENCE[0].rotY);
-  const [paused, setPaused]     = useState(false);
-  const [radioMode, setRadioMode] = useState(false);
-  const [toast, setToast]       = useState<Toast | null>(null);
-  const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const toastRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const radioRef  = useRef(false); // не ре-рендер зависимость
+  const [paused, setPaused] = useState(false);
+  const [toast, setToast]   = useState<Toast | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const goToStep = useCallback((s: number) => {
     const idx = ((s % SEQUENCE.length) + SEQUENCE.length) % SEQUENCE.length;
@@ -75,18 +75,11 @@ export default function RubiksCube({ tracks, player, onPlay, onRadio }: Props) {
   }, []);
 
   const handleTrackClick = useCallback((track: Track, color: string) => {
-    if (radioRef.current) {
-      // В режиме радио — любой тап возвращает к ручному выбору
-      radioRef.current = false;
-      setRadioMode(false);
-    }
     onPlay(track);
     showToast(track, color);
   }, [onPlay, showToast]);
 
   const handleRadioClick = useCallback(() => {
-    radioRef.current = true;
-    setRadioMode(true);
     onRadio();
   }, [onRadio]);
 
@@ -131,7 +124,7 @@ export default function RubiksCube({ tracks, player, onPlay, onRadio }: Props) {
         </div>
       )}
 
-      {/* Индикатор режима радио */}
+      {/* Индикатор режима радио (внешний) */}
       {radioMode && (
         <div style={{
           position: "absolute", top: -54, left: "50%", transform: "translateX(-50%)",
@@ -227,14 +220,16 @@ export default function RubiksCube({ tracks, player, onPlay, onRadio }: Props) {
                         transition: "border 0.3s, box-shadow 0.3s",
                       }}
                     >
-                      <span style={{ fontSize: size / GRID / 2.8, lineHeight: 1 }}>📻</span>
+                      <span style={{ fontSize: size / GRID / 2.8, lineHeight: 1 }}>
+                        {radioMode ? "⏹" : "📻"}
+                      </span>
                       <span style={{
-                        color: face.border,
+                        color: radioMode ? "#f5a623" : face.border,
                         fontSize: size / GRID / 5.5,
                         fontWeight: 700,
                         letterSpacing: "0.08em",
                         textTransform: "uppercase",
-                      }}>radio</span>
+                      }}>{radioMode ? "stop" : "radio"}</span>
                     </div>
                   );
                 }
@@ -281,6 +276,13 @@ export default function RubiksCube({ tracks, player, onPlay, onRadio }: Props) {
                           background: "#f5a623", boxShadow: "0 0 10px #f5a623",
                         }} />
                       </div>
+                    )}
+                    {track.priority && !isActive && (
+                      <div style={{
+                        position: "absolute", top: 1, right: 1,
+                        fontSize: cellSize * 0.28, lineHeight: 1,
+                        pointerEvents: "none",
+                      }}>❤️</div>
                     )}
                   </div>
                 );

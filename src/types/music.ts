@@ -10,6 +10,9 @@ export interface Track {
   lyrics?: string;
   file?: File;
   likes?: number;
+  plays?: number;       // кол-во прослушиваний вручную
+  radioPlays?: number;  // кол-во прослушиваний в радио
+  priority?: boolean;   // приоритет в радио (сердечко)
 }
 
 export interface PlayerState {
