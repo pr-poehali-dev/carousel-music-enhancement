@@ -1,5 +1,6 @@
 import Icon from "@/components/ui/icon";
 import VinylDisk from "../components/VinylDisk";
+import LyricsScroller from "../components/LyricsScroller";
 import { Track, PlayerState } from "../types/music";
 
 interface Props {
@@ -182,13 +183,27 @@ export default function PlayerPage({
                 </div>
               </div>
 
-              {/* Текст песни (если есть) */}
+              {/* Текст песни — прокручивается синхронно */}
               {currentTrack.lyrics && (
-                <div className="glass-card rounded-xl p-5 animate-fade-in">
-                  <h3 className="font-display text-xs tracking-widest text-foreground/30 mb-3">ТЕКСТ ПЕСНИ</h3>
-                  <pre className="font-body text-foreground/65 text-sm leading-8 whitespace-pre-wrap">
-                    {currentTrack.lyrics}
-                  </pre>
+                <div className="glass-card rounded-xl overflow-hidden animate-fade-in">
+                  <div className="flex items-center justify-between px-5 pt-4 pb-2">
+                    <h3 className="font-display text-xs tracking-widest text-foreground/30">
+                      ТЕКСТ ПЕСНИ
+                    </h3>
+                    {isPlaying && (
+                      <div className="flex items-end gap-[2px] h-3">
+                        <span className="eq-bar" />
+                        <span className="eq-bar" />
+                        <span className="eq-bar" />
+                      </div>
+                    )}
+                  </div>
+                  <LyricsScroller
+                    lyrics={currentTrack.lyrics}
+                    progress={progress}
+                    durationSec={durationSec}
+                    isPlaying={isPlaying}
+                  />
                 </div>
               )}
             </>
