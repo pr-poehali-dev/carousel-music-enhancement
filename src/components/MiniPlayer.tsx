@@ -88,7 +88,6 @@ export default function MiniPlayer({ player, onToggle, onOpen, onNext, onPrev, s
           <div className="hidden md:flex items-center gap-2">
             <div className="flex flex-col items-center gap-0.5">
               <Icon name="Volume2" size={14} className="text-foreground/30" />
-              <span className="text-[8px] text-foreground/20 uppercase tracking-wider leading-none">Звук</span>
             </div>
             <input
               type="range" min={0} max={100} value={volume}
