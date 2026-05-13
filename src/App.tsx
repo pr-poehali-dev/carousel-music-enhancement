@@ -163,7 +163,11 @@ export default function App() {
             onUpdateLyrics={updateLyrics}
           />
         )}
-        {page === "upload" && <UploadPage onAdd={addTracks} setPage={setPage} />}
+        {page === "upload" && (
+          <AdminGate title="ЗАГРУЗКА">
+            <UploadPage onAdd={addTracks} setPage={setPage} />
+          </AdminGate>
+        )}
         {page === "lyrics"  && <LyricsPage tracks={tracks} currentTrack={player.currentTrack} onPlay={playTrack} />}
         {page === "radio"   && (
           <RadioPage
