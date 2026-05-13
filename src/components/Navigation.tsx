@@ -107,9 +107,10 @@ export default function Navigation({ page, setPage, unreadMessages = 0 }: Props)
               <button
                 key={item.id}
                 onClick={() => setPage(item.id)}
-                className={`relative p-2 transition-colors ${active ? "text-amber" : "text-foreground/30"}`}
+                className={`relative flex flex-col items-center gap-0.5 px-2 py-1 transition-colors ${active ? "text-amber" : "text-foreground/30"}`}
               >
                 <Icon name={item.icon} fallback="Music" size={18} />
+                <span className="text-[9px] font-display tracking-wider leading-none">{item.label}</span>
                 {isBadge && (
                   <span className="absolute top-0.5 right-0.5 w-3 h-3 rounded-full bg-rust" />
                 )}
