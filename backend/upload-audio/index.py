@@ -1,4 +1,4 @@
-"""Чанковая загрузка аудио в S3 через бэкенд."""
+"""Чанковая загрузка аудио: чанки хранятся в S3, финализация собирает их."""
 import os, json, base64
 import boto3
 import psycopg2
@@ -11,9 +11,6 @@ CORS = {
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
 }
-
-# Временное хранилище чанков в памяти
-_chunks: dict = {}
 
 def get_s3():
     return boto3.client(
@@ -34,22 +31,24 @@ def handler(event: dict, context) -> dict:
     action = body.get("action", "")
     print(f"[upload] action={action}")
 
-    # Загрузка одного чанка
+    s3 = get_s3()
+
+    # Загрузка одного чанка — сохраняем в S3 как временный файл
     if action == "chunk":
         upload_id = body.get("upload_id", "")
         chunk_idx = body.get("chunk_idx", 0)
         total     = body.get("total_chunks", 1)
         data_b64  = body.get("data", "")
 
-        if upload_id not in _chunks:
-            _chunks[upload_id] = {}
-        _chunks[upload_id][chunk_idx] = base64.b64decode(data_b64)
-        print(f"[upload] chunk {chunk_idx+1}/{total} upload_id={upload_id} size={len(_chunks[upload_id][chunk_idx])}")
+        chunk_bytes = base64.b64decode(data_b64)
+        chunk_key   = f"chunks/{upload_id}/{chunk_idx}"
+        s3.put_object(Bucket="files", Key=chunk_key, Body=chunk_bytes)
+        print(f"[upload] chunk {chunk_idx+1}/{total} saved to s3 size={len(chunk_bytes)}")
 
         return {"statusCode": 200, "headers": CORS,
                 "body": json.dumps({"ok": True, "received": chunk_idx})}
 
-    # Финализация — собрать чанки и загрузить в S3
+    # Финализация — собрать чанки из S3 и склеить в один файл
     if action == "finalize":
         upload_id = body.get("upload_id", "")
         track_id  = body.get("track_id", "")
@@ -58,26 +57,26 @@ def handler(event: dict, context) -> dict:
         folder    = body.get("folder")
         total     = body.get("total_chunks", 1)
 
-        chunks_map = _chunks.get(upload_id, {})
-        if len(chunks_map) < total:
-            return {"statusCode": 400, "headers": CORS,
-                    "body": json.dumps({"ok": False, "error": f"missing chunks: got {len(chunks_map)}/{total}"})}
+        print(f"[upload] finalize upload_id={upload_id} total={total}")
 
-        file_bytes = b"".join(chunks_map[i] for i in range(total))
-        print(f"[upload] finalize upload_id={upload_id} total_size={len(file_bytes)}")
+        # Собираем все чанки из S3
+        parts = []
+        for i in range(total):
+            chunk_key = f"chunks/{upload_id}/{i}"
+            obj = s3.get_object(Bucket="files", Key=chunk_key)
+            parts.append(obj["Body"].read())
 
+        file_bytes = b"".join(parts)
+        print(f"[upload] assembled size={len(file_bytes)}")
+
+        # Загружаем финальный файл
         ext    = filename.rsplit(".", 1)[-1].lower() if "." in filename else "mp3"
         s3_key = f"audio/{track_id}.{ext}"
-
-        get_s3().put_object(
-            Bucket="files",
-            Key=s3_key,
-            Body=file_bytes,
-            ContentType=mime_type,
-        )
+        s3.put_object(Bucket="files", Key=s3_key, Body=file_bytes, ContentType=mime_type)
 
         audio_url = f"{CDN_BASE}/files/{s3_key}"
 
+        # Сохраняем в БД
         conn = get_conn()
         cur  = conn.cursor()
         try:
@@ -90,9 +89,14 @@ def handler(event: dict, context) -> dict:
             cur.close()
             conn.close()
 
-        _chunks.pop(upload_id, None)
-        print(f"[upload] done audio_url={audio_url}")
+        # Удаляем временные чанки
+        for i in range(total):
+            try:
+                s3.delete_object(Bucket="files", Key=f"chunks/{upload_id}/{i}")
+            except Exception:
+                pass
 
+        print(f"[upload] done audio_url={audio_url}")
         return {"statusCode": 200, "headers": CORS,
                 "body": json.dumps({"ok": True, "audio_url": audio_url})}
 
