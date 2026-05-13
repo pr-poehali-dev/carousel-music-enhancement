@@ -1,5 +1,5 @@
-"""Загрузка аудио: presigned URL для S3 + сохранение audio_url в БД."""
-import os, json
+"""Чанковая загрузка аудио в S3 через бэкенд."""
+import os, json, base64
 import boto3
 import psycopg2
 
@@ -12,74 +12,71 @@ CORS = {
     "Access-Control-Allow-Headers": "Content-Type",
 }
 
+# Временное хранилище чанков в памяти
+_chunks: dict = {}
+
 def get_s3():
     return boto3.client(
         "s3",
         endpoint_url="https://bucket.poehali.dev",
         aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
         aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
-        config=boto3.session.Config(signature_version="s3v4"),
     )
 
 def get_conn():
     return psycopg2.connect(os.environ["DATABASE_URL"])
-
-def set_bucket_cors(s3):
-    try:
-        s3.put_bucket_cors(Bucket="files", CORSConfiguration={
-            "CORSRules": [{
-                "AllowedOrigins": ["*"],
-                "AllowedMethods": ["GET", "PUT", "HEAD", "POST", "DELETE"],
-                "AllowedHeaders": ["*"],
-                "ExposeHeaders": ["ETag"],
-                "MaxAgeSeconds": 86400,
-            }]
-        })
-    except Exception as e:
-        print(f"[cors] {e}")
 
 def handler(event: dict, context) -> dict:
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
     body   = json.loads(event.get("body") or "{}")
-    action = body.get("action", "presign")
+    action = body.get("action", "")
     print(f"[upload] action={action}")
 
-    # Генерируем presigned URL + устанавливаем CORS на бакет
-    if action == "presign":
+    # Загрузка одного чанка
+    if action == "chunk":
+        upload_id = body.get("upload_id", "")
+        chunk_idx = body.get("chunk_idx", 0)
+        total     = body.get("total_chunks", 1)
+        data_b64  = body.get("data", "")
+
+        if upload_id not in _chunks:
+            _chunks[upload_id] = {}
+        _chunks[upload_id][chunk_idx] = base64.b64decode(data_b64)
+        print(f"[upload] chunk {chunk_idx+1}/{total} upload_id={upload_id} size={len(_chunks[upload_id][chunk_idx])}")
+
+        return {"statusCode": 200, "headers": CORS,
+                "body": json.dumps({"ok": True, "received": chunk_idx})}
+
+    # Финализация — собрать чанки и загрузить в S3
+    if action == "finalize":
+        upload_id = body.get("upload_id", "")
         track_id  = body.get("track_id", "")
         filename  = body.get("filename", "audio.mp3")
         mime_type = body.get("mime_type", "audio/mpeg")
         folder    = body.get("folder")
+        total     = body.get("total_chunks", 1)
+
+        chunks_map = _chunks.get(upload_id, {})
+        if len(chunks_map) < total:
+            return {"statusCode": 400, "headers": CORS,
+                    "body": json.dumps({"ok": False, "error": f"missing chunks: got {len(chunks_map)}/{total}"})}
+
+        file_bytes = b"".join(chunks_map[i] for i in range(total))
+        print(f"[upload] finalize upload_id={upload_id} total_size={len(file_bytes)}")
 
         ext    = filename.rsplit(".", 1)[-1].lower() if "." in filename else "mp3"
         s3_key = f"audio/{track_id}.{ext}"
 
-        s3 = get_s3()
-        set_bucket_cors(s3)
-
-        presigned_url = s3.generate_presigned_url(
-            "put_object",
-            Params={"Bucket": "files", "Key": s3_key, "ContentType": mime_type},
-            ExpiresIn=3600,
+        get_s3().put_object(
+            Bucket="files",
+            Key=s3_key,
+            Body=file_bytes,
+            ContentType=mime_type,
         )
+
         audio_url = f"{CDN_BASE}/files/{s3_key}"
-        print(f"[upload] presigned ok key={s3_key}")
-
-        return {"statusCode": 200, "headers": CORS, "body": json.dumps({
-            "ok": True,
-            "upload_url": presigned_url,
-            "audio_url":  audio_url,
-            "s3_key":     s3_key,
-        })}
-
-    # После загрузки — сохранить audio_url в БД
-    if action == "confirm":
-        track_id  = body.get("track_id", "")
-        audio_url = body.get("audio_url", "")
-        folder    = body.get("folder")
-        print(f"[upload] confirm track_id={track_id} audio_url={audio_url}")
 
         conn = get_conn()
         cur  = conn.cursor()
@@ -93,8 +90,11 @@ def handler(event: dict, context) -> dict:
             cur.close()
             conn.close()
 
+        _chunks.pop(upload_id, None)
+        print(f"[upload] done audio_url={audio_url}")
+
         return {"statusCode": 200, "headers": CORS,
-                "body": json.dumps({"ok": True})}
+                "body": json.dumps({"ok": True, "audio_url": audio_url})}
 
     return {"statusCode": 400, "headers": CORS,
             "body": json.dumps({"error": "unknown action"})}

@@ -26,35 +26,39 @@ export async function apiListTracks(): Promise<Track[]> {
   }));
 }
 
-// Загрузить аудиофайл в S3 через presigned URL
+// Загрузить аудиофайл через бэкенд чанками по 512КБ
 export async function apiUploadAudio(trackId: string, file: File, folder?: string): Promise<string> {
-  const mime = file.type || "audio/mpeg";
+  const mime      = file.type || "audio/mpeg";
+  const CHUNK     = 512 * 1024; // 512 КБ
+  const uploadId  = trackId + "_" + Date.now();
+  const buffer    = await file.arrayBuffer();
+  const total     = Math.ceil(buffer.byteLength / CHUNK);
 
-  // Шаг 1: получаем presigned URL
-  const presignRes = await fetch(UPLOAD_URL, {
+  for (let i = 0; i < total; i++) {
+    const slice = buffer.slice(i * CHUNK, (i + 1) * CHUNK);
+    const bytes = new Uint8Array(slice);
+    let bin = "";
+    for (let j = 0; j < bytes.byteLength; j++) bin += String.fromCharCode(bytes[j]);
+    const data = btoa(bin);
+
+    const res = await fetch(UPLOAD_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "chunk", upload_id: uploadId, chunk_idx: i, total_chunks: total, data }),
+    });
+    const r = await res.json();
+    if (!r.ok) throw new Error(`chunk ${i} failed`);
+  }
+
+  // Финализация
+  const finalRes = await fetch(UPLOAD_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "presign", track_id: trackId, filename: file.name, mime_type: mime, folder }),
+    body: JSON.stringify({ action: "finalize", upload_id: uploadId, track_id: trackId, filename: file.name, mime_type: mime, folder, total_chunks: total }),
   });
-  const presignData = await presignRes.json();
-  if (!presignData.ok) throw new Error(presignData.error ?? "presign failed");
-
-  // Шаг 2: загружаем файл напрямую в S3
-  const putRes = await fetch(presignData.upload_url, {
-    method: "PUT",
-    headers: { "Content-Type": mime },
-    body: file,
-  });
-  if (!putRes.ok) throw new Error(`S3 upload failed: ${putRes.status}`);
-
-  // Шаг 3: сохраняем audio_url в БД
-  await fetch(UPLOAD_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "confirm", track_id: trackId, audio_url: presignData.audio_url, folder }),
-  });
-
-  return presignData.audio_url;
+  const finalData = await finalRes.json();
+  if (!finalData.ok) throw new Error(finalData.error ?? "finalize failed");
+  return finalData.audio_url;
 }
 
 export async function apiSaveTracks(tracks: Track[]): Promise<void> {
