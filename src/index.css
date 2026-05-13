@@ -322,4 +322,22 @@
     border: 1px solid rgba(212, 144, 10, 0.3);
     color: #d4900a;
   }
+
+  /* ── Vinyl glow при воспроизведении ─────────────── */
+  @keyframes vinyl-glow {
+    0%,
+    100% {
+      box-shadow:
+        0 0 20px rgba(212, 144, 10, 0.08),
+        0 16px 48px rgba(0, 0, 0, 0.7);
+    }
+    50% {
+      box-shadow:
+        0 0 48px rgba(212, 144, 10, 0.22),
+        0 16px 48px rgba(0, 0, 0, 0.7);
+    }
+  }
+  .vinyl-playing {
+    animation: vinyl-glow 2.8s ease-in-out infinite;
+  }
 }
