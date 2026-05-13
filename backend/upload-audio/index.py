@@ -65,7 +65,9 @@ def handler(event: dict, context) -> dict:
         (v for k, v in (event.get("headers") or {}).items() if k.lower() == "content-type"), ""
     )
 
+    print(f"ct={content_type[:80]} body_len={len(body_bytes)} b64={event.get('isBase64Encoded')}")
     fields   = parse_multipart(body_bytes, content_type)
+    print(f"fields={list(fields.keys())}")
     track_id = fields.get("track_id", "")
     folder   = fields.get("folder") or None
     audio    = fields.get("audio")
