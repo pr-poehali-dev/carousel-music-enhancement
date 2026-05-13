@@ -4,6 +4,7 @@ import PlayerPage from "./pages/PlayerPage";
 import UploadPage from "./pages/UploadPage";
 import LyricsPage from "./pages/LyricsPage";
 import AdminPage from "./pages/AdminPage";
+import AdminGate from "./components/AdminGate";
 import MiniPlayer from "./components/MiniPlayer";
 import Navigation from "./components/Navigation";
 import { Track, PlayerState, Message } from "./types/music";
@@ -88,12 +89,14 @@ export default function App() {
         {page === "upload" && <UploadPage onAdd={addTracks} setPage={setPage} />}
         {page === "lyrics"  && <LyricsPage tracks={tracks} currentTrack={player.currentTrack} onPlay={playTrack} />}
         {page === "admin"   && (
-          <AdminPage
-            tracks={tracks} setTracks={setTracks}
-            messages={messages}
-            onReadMessage={handleReadMsg}
-            onDeleteMessage={handleDeleteMsg}
-          />
+          <AdminGate>
+            <AdminPage
+              tracks={tracks} setTracks={setTracks}
+              messages={messages}
+              onReadMessage={handleReadMsg}
+              onDeleteMessage={handleDeleteMsg}
+            />
+          </AdminGate>
         )}
       </main>
 
