@@ -3,9 +3,9 @@ import { PageName } from "../App";
 
 const NAV_ITEMS: { id: PageName; label: string; icon: string }[] = [
   { id: "home",   label: "Карусель", icon: "Box" },
-  { id: "radio",  label: "Радио",    icon: "Radio" },
   { id: "player", label: "Плеер",    icon: "Disc3" },
   { id: "upload", label: "Загрузка", icon: "Upload" },
+  { id: "lyrics", label: "Тексты",   icon: "FileText" },
   { id: "admin",  label: "Студия",   icon: "Settings2" },
 ];
 

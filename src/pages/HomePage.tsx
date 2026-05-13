@@ -7,6 +7,7 @@ import { PageName } from "../App";
 interface Props {
   tracks: Track[];
   onPlay: (t: Track) => void;
+  onRadio: () => void;
   setPage: (p: PageName) => void;
   player: PlayerState;
   onToggle: () => void;
@@ -15,9 +16,8 @@ interface Props {
   onMessage: (msg: Message) => void;
 }
 
-export default function HomePage({ tracks, onPlay, setPage, player, onToggle }: Props) {
+export default function HomePage({ tracks, onPlay, onRadio, setPage, player, onToggle }: Props) {
   const [hint, setHint] = useState(true);
-
   const cur = player.currentTrack;
 
   return (
@@ -33,7 +33,7 @@ export default function HomePage({ tracks, onPlay, setPage, player, onToggle }: 
         <div className="mb-6 glass-card px-5 py-3 rounded-2xl flex items-center gap-3 max-w-sm w-full">
           <Icon name="Info" size={16} className="text-amber flex-shrink-0" />
           <p className="text-white/60 text-xs leading-relaxed flex-1">
-            Кубик крутится сам — тапни по обложке чтобы включить трек
+            Кубик крутится сам — тапни обложку чтобы включить трек, 📻 в центре — случайное радио
           </p>
           <button onClick={() => setHint(false)} className="text-white/30 hover:text-white/60">
             <Icon name="X" size={14} />
@@ -41,7 +41,7 @@ export default function HomePage({ tracks, onPlay, setPage, player, onToggle }: 
         </div>
       )}
 
-      <RubiksCube tracks={tracks} player={player} onPlay={onPlay} />
+      <RubiksCube tracks={tracks} player={player} onPlay={onPlay} onRadio={onRadio} />
 
       {cur && (
         <div className="mt-8 glass-card rounded-2xl px-5 py-4 flex items-center gap-4 max-w-sm w-full">
@@ -64,23 +64,6 @@ export default function HomePage({ tracks, onPlay, setPage, player, onToggle }: 
           </button>
         </div>
       )}
-
-      <div className="mt-6 flex gap-3">
-        <button
-          onClick={() => setPage("radio" as PageName)}
-          className="glass-card px-5 py-2.5 rounded-xl text-white/70 hover:text-white text-sm font-display tracking-wider flex items-center gap-2 transition-colors border border-white/10"
-        >
-          <Icon name="Radio" size={15} />
-          Радио
-        </button>
-        <button
-          onClick={() => setPage("player")}
-          className="glass-card px-5 py-2.5 rounded-xl text-white/70 hover:text-white text-sm font-display tracking-wider flex items-center gap-2 transition-colors border border-white/10"
-        >
-          <Icon name="Disc3" size={15} />
-          Плеер
-        </button>
-      </div>
     </div>
   );
 }

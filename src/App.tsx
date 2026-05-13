@@ -44,6 +44,11 @@ export default function App() {
     playTrack(prev);
   };
 
+  const playRadio = () => {
+    const shuffled = [...tracks].sort(() => Math.random() - 0.5);
+    playTrack(shuffled[0]);
+  };
+
   const addTracks = (newTracks: Track[]) =>
     setTracks(prev => [...newTracks, ...prev]);
 
@@ -75,6 +80,7 @@ export default function App() {
             player={player} onToggle={togglePlay}
             onLike={handleLike} likedIds={likedIds}
             onMessage={handleMessage}
+            onRadio={playRadio}
           />
         )}
         {page === "player" && (
