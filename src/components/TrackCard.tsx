@@ -4,12 +4,16 @@ import { Track } from "../types/music";
 interface Props {
   track: Track;
   onPlay: (t: Track) => void;
+  onLike?: (id: string) => void;
+  liked?: boolean;
   isActive?: boolean;
   isPlaying?: boolean;
   index?: number;
 }
 
-export default function TrackCard({ track, onPlay, isActive, isPlaying, index }: Props) {
+export default function TrackCard({ track, onPlay, onLike, liked, isActive, isPlaying, index }: Props) {
+  const likeCount = (track.likes ?? 0) + (liked ? 1 : 0);
+
   return (
     <div
       className={`track-card rounded-2xl p-4 cursor-pointer group animate-fade-in ${isActive ? "neon-border" : ""}`}
@@ -41,6 +45,17 @@ export default function TrackCard({ track, onPlay, isActive, isPlaying, index }:
             {track.genre}
           </span>
         )}
+        {/* Like badge */}
+        {onLike && (
+          <button
+            className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-all backdrop-blur-sm
+              ${liked ? "bg-neon-pink/30 text-neon-pink" : "bg-black/50 text-white/50 hover:text-white/80 opacity-0 group-hover:opacity-100"}`}
+            onClick={e => { e.stopPropagation(); onLike(track.id); }}
+          >
+            <Icon name="Heart" size={10} className={liked ? "fill-neon-pink" : ""} />
+            {likeCount > 0 && <span>{likeCount}</span>}
+          </button>
+        )}
       </div>
 
       <div>
@@ -48,7 +63,12 @@ export default function TrackCard({ track, onPlay, isActive, isPlaying, index }:
         <p className="text-white/50 text-xs truncate mt-0.5">{track.artist}</p>
         <div className="flex items-center justify-between mt-2">
           <span className="text-white/30 text-xs">{track.duration}</span>
-          {track.year && <span className="text-white/30 text-xs">{track.year}</span>}
+          {likeCount > 0 && (
+            <span className={`text-xs flex items-center gap-1 ${liked ? "text-neon-pink" : "text-white/25"}`}>
+              <Icon name="Heart" size={10} className={liked ? "fill-neon-pink" : ""} />
+              {likeCount}
+            </span>
+          )}
         </div>
       </div>
     </div>

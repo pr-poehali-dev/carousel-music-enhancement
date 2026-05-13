@@ -7,9 +7,11 @@ interface Props {
   onPlay: (t: Track) => void;
   onToggle: () => void;
   setPlayer: (fn: (p: PlayerState) => PlayerState) => void;
+  onLike: (id: string) => void;
+  likedIds: Set<string>;
 }
 
-export default function PlayerPage({ player, tracks, onPlay, onToggle, setPlayer }: Props) {
+export default function PlayerPage({ player, tracks, onPlay, onToggle, setPlayer, onLike, likedIds }: Props) {
   const { currentTrack, isPlaying, progress, volume } = player;
 
   const currentIdx = tracks.findIndex(t => t.id === currentTrack?.id);
@@ -48,8 +50,12 @@ export default function PlayerPage({ player, tracks, onPlay, onToggle, setPlayer
                       <h2 className="font-display text-3xl font-bold text-white">{currentTrack.title}</h2>
                       <p className="text-white/70">{currentTrack.artist}</p>
                     </div>
-                    <button className="text-white/40 hover:text-neon-pink transition-colors">
-                      <Icon name="Heart" size={22} />
+                    <button
+                      onClick={() => currentTrack && onLike(currentTrack.id)}
+                      className={`flex items-center gap-1.5 transition-all ${currentTrack && likedIds.has(currentTrack.id) ? "text-neon-pink" : "text-white/40 hover:text-neon-pink"}`}
+                    >
+                      <Icon name="Heart" size={22} className={currentTrack && likedIds.has(currentTrack.id) ? "fill-neon-pink" : ""} />
+                      <span className="text-sm font-display">{(currentTrack?.likes ?? 0) + (currentTrack && likedIds.has(currentTrack.id) ? 1 : 0)}</span>
                     </button>
                   </div>
                 </div>

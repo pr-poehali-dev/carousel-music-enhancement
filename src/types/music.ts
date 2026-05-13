@@ -9,6 +9,7 @@ export interface Track {
   year?: number;
   lyrics?: string;
   file?: File;
+  likes?: number;
 }
 
 export interface PlayerState {
@@ -16,4 +17,12 @@ export interface PlayerState {
   isPlaying: boolean;
   progress: number;
   volume: number;
+}
+
+export interface Message {
+  id: string;
+  name: string;
+  text: string;
+  createdAt: string;
+  isRead: boolean;
 }
