@@ -44,13 +44,15 @@ interface Props {
 }
 
 export default function RubiksCube({ tracks, player, onPlay, onRadio }: Props) {
-  const [step, setStep]     = useState(0);
-  const [rotX, setRotX]     = useState(SEQUENCE[0].rotX);
-  const [rotY, setRotY]     = useState(SEQUENCE[0].rotY);
-  const [paused, setPaused] = useState(false);
-  const [toast, setToast]   = useState<Toast | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const toastRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [step, setStep]         = useState(0);
+  const [rotX, setRotX]         = useState(SEQUENCE[0].rotX);
+  const [rotY, setRotY]         = useState(SEQUENCE[0].rotY);
+  const [paused, setPaused]     = useState(false);
+  const [radioMode, setRadioMode] = useState(false);
+  const [toast, setToast]       = useState<Toast | null>(null);
+  const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const radioRef  = useRef(false); // не ре-рендер зависимость
 
   const goToStep = useCallback((s: number) => {
     const idx = ((s % SEQUENCE.length) + SEQUENCE.length) % SEQUENCE.length;
@@ -59,17 +61,12 @@ export default function RubiksCube({ tracks, player, onPlay, onRadio }: Props) {
     setRotY(SEQUENCE[idx].rotY);
   }, []);
 
+  // Авторотация — всегда идёт, паузу можно включить вручную
   useEffect(() => {
     if (paused) return;
     timerRef.current = setTimeout(() => goToStep(step + 1), STEP_DURATION);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [step, paused, goToStep]);
-
-  const pauseAuto = useCallback((ms = 8000) => {
-    setPaused(true);
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => setPaused(false), ms);
-  }, []);
 
   const showToast = useCallback((track: Track, color: string) => {
     if (toastRef.current) clearTimeout(toastRef.current);
@@ -78,15 +75,20 @@ export default function RubiksCube({ tracks, player, onPlay, onRadio }: Props) {
   }, []);
 
   const handleTrackClick = useCallback((track: Track, color: string) => {
+    if (radioRef.current) {
+      // В режиме радио — любой тап возвращает к ручному выбору
+      radioRef.current = false;
+      setRadioMode(false);
+    }
     onPlay(track);
     showToast(track, color);
-    pauseAuto(8000);
-  }, [onPlay, showToast, pauseAuto]);
+  }, [onPlay, showToast]);
 
   const handleRadioClick = useCallback(() => {
+    radioRef.current = true;
+    setRadioMode(true);
     onRadio();
-    pauseAuto(60000);
-  }, [onRadio, pauseAuto]);
+  }, [onRadio]);
 
   const size = Math.min(
     typeof window !== "undefined"
@@ -129,12 +131,26 @@ export default function RubiksCube({ tracks, player, onPlay, onRadio }: Props) {
         </div>
       )}
 
+      {/* Индикатор режима радио */}
+      {radioMode && (
+        <div style={{
+          position: "absolute", top: -54, left: "50%", transform: "translateX(-50%)",
+          background: "rgba(10,8,5,0.93)", border: "1px solid #f5a623",
+          borderRadius: 14, padding: "6px 16px", whiteSpace: "nowrap",
+          pointerEvents: "none", zIndex: 99,
+          boxShadow: "0 0 16px rgba(245,166,35,0.4)",
+          fontSize: 11, color: "#f5a623", letterSpacing: "0.1em", textTransform: "uppercase",
+        }}>
+          📻 Радио — тапни обложку для выбора
+        </div>
+      )}
+
       {/* Индикаторы граней */}
       <div className="flex gap-2 items-center">
         {FACES.map((f, i) => (
           <button
             key={f.name}
-            onClick={() => { goToStep(i); pauseAuto(8000); }}
+            onClick={() => { goToStep(i); }}
             style={{
               width: i === step ? 22 : 8,
               height: 8,
@@ -201,12 +217,14 @@ export default function RubiksCube({ tracks, player, onPlay, onRadio }: Props) {
                         overflow: "hidden",
                         cursor: "pointer",
                         background: "#000",
-                        border: `2px solid ${face.border}88`,
+                        border: radioMode ? "2px solid #f5a623" : `2px solid ${face.border}88`,
+                        boxShadow: radioMode ? "0 0 12px rgba(245,166,35,0.6)" : "none",
                         display: "flex",
                         flexDirection: "column",
                         alignItems: "center",
                         justifyContent: "center",
                         gap: 2,
+                        transition: "border 0.3s, box-shadow 0.3s",
                       }}
                     >
                       <span style={{ fontSize: size / GRID / 2.8, lineHeight: 1 }}>📻</span>

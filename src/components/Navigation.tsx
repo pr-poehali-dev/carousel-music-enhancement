@@ -23,11 +23,46 @@ export default function Navigation({ page, setPage, unreadMessages = 0 }: Props)
 
         {/* Лого */}
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded grad-btn flex items-center justify-center">
-            <Icon name="Radio" size={15} className="text-charcoal" />
+          <div className="relative w-9 h-9 flex-shrink-0 cursor-pointer group"
+            onClick={() => document.getElementById('avatar-upload')?.click()}>
+            <img
+              id="avatar-img"
+              src={(typeof window !== 'undefined' && localStorage.getItem('avatar')) || ''}
+              alt=""
+              className="w-9 h-9 rounded-full object-cover border-2 border-amber/40"
+              style={{ display: (typeof window !== 'undefined' && localStorage.getItem('avatar')) ? 'block' : 'none' }}
+            />
+            <div
+              id="avatar-placeholder"
+              className="w-9 h-9 rounded-full grad-btn flex items-center justify-center"
+              style={{ display: (typeof window !== 'undefined' && localStorage.getItem('avatar')) ? 'none' : 'flex' }}
+            >
+              <Icon name="User" size={16} className="text-charcoal" />
+            </div>
+            <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+              <Icon name="Camera" size={12} className="text-white" />
+            </div>
+            <input id="avatar-upload" type="file" accept="image/*" className="hidden"
+              onChange={e => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                const reader = new FileReader();
+                reader.onload = ev => {
+                  const url = ev.target?.result as string;
+                  localStorage.setItem('avatar', url);
+                  const img = document.getElementById('avatar-img') as HTMLImageElement;
+                  const ph  = document.getElementById('avatar-placeholder') as HTMLElement;
+                  if (img) { img.src = url; img.style.display = 'block'; }
+                  if (ph)  { ph.style.display = 'none'; }
+                };
+                reader.readAsDataURL(f);
+              }}
+            />
           </div>
-          <span className="font-display text-xl tracking-[0.12em] text-foreground">ЗВУК</span>
-          <span className="hidden sm:block text-foreground/20 text-xs tracking-widest font-body uppercase">Blues · Rock · Alt</span>
+          <div className="flex flex-col leading-none">
+            <span className="font-display text-lg tracking-[0.12em] text-foreground">ПРИКОСНОВЕНЬЕ</span>
+            <span className="text-foreground/25 text-[10px] tracking-widest font-body uppercase">музыкальная карусель</span>
+          </div>
         </div>
 
         {/* Десктоп */}
