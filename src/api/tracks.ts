@@ -26,30 +26,14 @@ export async function apiListTracks(): Promise<Track[]> {
   }));
 }
 
-// Загрузить аудиофайл на сервер, вернуть URL
-function toBase64(buffer: ArrayBuffer): string {
-  const bytes  = new Uint8Array(buffer);
-  const chunk  = 8192;
-  let binary   = "";
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return btoa(binary);
-}
+// Загрузить аудиофайл на сервер через FormData
+export async function apiUploadAudio(trackId: string, file: File, folder?: string): Promise<string> {
+  const form = new FormData();
+  form.append("track_id", trackId);
+  form.append("audio", file, file.name);
+  if (folder) form.append("folder", folder);
 
-export async function apiUploadAudio(trackId: string, file: File): Promise<string> {
-  const buffer = await file.arrayBuffer();
-  const b64    = toBase64(buffer);
-  const res = await fetch(UPLOAD_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      track_id:  trackId,
-      filename:  file.name,
-      mime_type: file.type || "audio/mpeg",
-      data:      b64,
-    }),
-  });
+  const res = await fetch(UPLOAD_URL, { method: "POST", body: form });
   const data = await res.json();
   if (!data.ok) throw new Error(data.error ?? "upload failed");
   return data.audio_url;

@@ -23,7 +23,11 @@ export default function AdminPage({ tracks, setTracks, messages, onReadMessage, 
   const [confirmDelFolder, setConfirmDelFolder] = useState<string | null>(null);
 
   const filtered = tracks.filter(t => {
-    const inFolder = activeFolder === null || t.folder === activeFolder;
+    const inFolder = activeFolder === null
+      ? true
+      : activeFolder === "__none__"
+        ? !t.folder
+        : t.folder === activeFolder;
     const matchSearch = !search ||
       t.title.toLowerCase().includes(search.toLowerCase()) ||
       t.artist.toLowerCase().includes(search.toLowerCase());
@@ -114,41 +118,52 @@ export default function AdminPage({ tracks, setTracks, messages, onReadMessage, 
         <div className="glass-card rounded-3xl p-6">
 
           {/* Папки */}
-          {folders.length > 0 && (
-            <div className="mb-5">
-              <div className="flex items-center gap-2 mb-2">
-                <Icon name="FolderOpen" size={13} className="text-white/30" />
-                <span className="text-white/30 text-xs uppercase tracking-widest">Папки</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => setActiveFolder(null)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-display tracking-wider transition-all
-                    ${activeFolder === null ? "grad-btn text-white" : "glass-card text-white/50 border border-white/10 hover:text-white"}`}
-                >
-                  Все треки ({tracks.length})
-                </button>
-                {folders.map(f => (
-                  <div key={f} className="flex items-center gap-1">
-                    <button
-                      onClick={() => setActiveFolder(f === activeFolder ? null : f)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-display tracking-wider transition-all
-                        ${activeFolder === f ? "grad-btn text-white" : "glass-card text-white/50 border border-white/10 hover:text-white"}`}
-                    >
-                      📁 {f} ({tracks.filter(t => t.folder === f).length})
-                    </button>
-                    <button
-                      onClick={() => setConfirmDelFolder(f)}
-                      className="p-1.5 rounded-lg bg-red-500/10 text-red-400/50 hover:text-red-400 transition-colors"
-                      title="Удалить папку"
-                    >
-                      <Icon name="Trash2" size={12} />
-                    </button>
-                  </div>
-                ))}
-              </div>
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Icon name="FolderOpen" size={14} className="text-amber" />
+              <span className="text-white/50 text-xs uppercase tracking-widest font-display">Папки</span>
             </div>
-          )}
+            <div className="flex flex-wrap gap-2">
+              {/* Все треки */}
+              <button
+                onClick={() => setActiveFolder(null)}
+                className={`px-4 py-2 rounded-xl text-sm font-display tracking-wider transition-all
+                  ${activeFolder === null ? "grad-btn text-white" : "glass-card text-white/50 border border-white/10"}`}
+              >
+                Все ({tracks.length})
+              </button>
+
+              {/* Без папки */}
+              {tracks.some(t => !t.folder) && (
+                <button
+                  onClick={() => setActiveFolder("__none__")}
+                  className={`px-4 py-2 rounded-xl text-sm font-display tracking-wider transition-all
+                    ${activeFolder === "__none__" ? "grad-btn text-white" : "glass-card text-white/50 border border-white/10"}`}
+                >
+                  Без папки ({tracks.filter(t => !t.folder).length})
+                </button>
+              )}
+
+              {/* Папки */}
+              {folders.map(f => (
+                <div key={f} className="flex items-center gap-1">
+                  <button
+                    onClick={() => setActiveFolder(f === activeFolder ? null : f)}
+                    className={`px-4 py-2 rounded-xl text-sm font-display tracking-wider transition-all
+                      ${activeFolder === f ? "grad-btn text-white" : "glass-card text-white/50 border border-white/10"}`}
+                  >
+                    📁 {f} ({tracks.filter(t => t.folder === f).length})
+                  </button>
+                  <button
+                    onClick={() => setConfirmDelFolder(f)}
+                    className="p-2 rounded-xl bg-red-500/10 text-red-400/60 hover:text-red-400 active:bg-red-500/20 transition-colors"
+                  >
+                    <Icon name="Trash2" size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
 
           <div className="flex items-center gap-4 mb-6">
             <div className="relative flex-1">

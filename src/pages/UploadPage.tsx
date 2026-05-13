@@ -77,7 +77,7 @@ export default function UploadPage({ onAdd, setPage }: Props) {
       };
 
       try {
-        const audioUrl = await apiUploadAudio(id, f);
+        const audioUrl = await apiUploadAudio(id, f, folder);
         track.audioUrl = audioUrl;
       } catch {
         failed.push(f.name);
