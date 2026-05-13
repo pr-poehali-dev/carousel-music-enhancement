@@ -153,14 +153,14 @@ export default function AdminPage({ tracks, setTracks, messages, onReadMessage, 
                       </button>
                     </td>
                     <td className="py-3 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-2">
                         <button onClick={() => setEditTrack(track)}
-                          className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-colors">
-                          <Icon name="Pencil" size={14} />
+                          className="p-2 rounded-lg bg-white/5 text-white/40 hover:text-white active:bg-white/10 transition-colors">
+                          <Icon name="Pencil" size={15} />
                         </button>
                         <button onClick={() => setConfirmDelete(track.id)}
-                          className="p-1.5 rounded-lg hover:bg-red-500/20 text-white/40 hover:text-red-400 transition-colors">
-                          <Icon name="Trash2" size={14} />
+                          className="p-2 rounded-lg bg-red-500/10 text-red-400/60 hover:text-red-400 active:bg-red-500/20 transition-colors">
+                          <Icon name="Trash2" size={15} />
                         </button>
                       </div>
                     </td>

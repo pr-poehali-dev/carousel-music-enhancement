@@ -8,13 +8,14 @@ interface UseAudioPlayerProps {
 }
 
 export function useAudioPlayer({ player, tracks, setPlayer }: UseAudioPlayerProps) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioRef    = useRef<HTMLAudioElement | null>(null);
   const lastTrackId = useRef<string | null>(null);
+  const isPlayingRef = useRef(false);
 
   // Создаём Audio один раз
   useEffect(() => {
     const audio = new Audio();
-    audio.preload = "metadata";
+    audio.preload = "auto";
 
     audio.addEventListener("timeupdate", () => {
       if (!audio.duration) return;
@@ -23,17 +24,19 @@ export function useAudioPlayer({ player, tracks, setPlayer }: UseAudioPlayerProp
     });
 
     audio.addEventListener("ended", () => {
-      // Автоматически переходим к следующему треку
       setPlayer(p => {
         if (!p.currentTrack) return p;
-        const idx = tracks.findIndex(t => t.id === p.currentTrack!.id);
+        const idx  = tracks.findIndex(t => t.id === p.currentTrack!.id);
         const next = tracks[idx + 1] ?? tracks[0];
         return { ...p, currentTrack: next, isPlaying: true, progress: 0 };
       });
     });
 
-    audio.addEventListener("error", () => {
-      // Файл недоступен (демо-треки — URL) — просто визуально играем
+    // Когда трек загрузился — играем если нужно
+    audio.addEventListener("canplay", () => {
+      if (isPlayingRef.current) {
+        audio.play().catch(() => {});
+      }
     });
 
     audioRef.current = audio;
@@ -48,38 +51,41 @@ export function useAudioPlayer({ player, tracks, setPlayer }: UseAudioPlayerProp
     const audio = audioRef.current;
     if (!audio || !player.currentTrack) return;
 
+    isPlayingRef.current = player.isPlaying;
     const trackChanged = player.currentTrack.id !== lastTrackId.current;
 
     if (trackChanged) {
       lastTrackId.current = player.currentTrack.id;
+      audio.pause();
+
       if (player.currentTrack.audioUrl) {
-        // Аудио хранится на сервере
         audio.src = player.currentTrack.audioUrl;
+        audio.load();
+        // play запустится через canplay
       } else if (player.currentTrack.file) {
-        // Локальный файл (только что загружен, ещё не на сервере)
         audio.src = URL.createObjectURL(player.currentTrack.file);
+        audio.load();
       } else {
-        // Демо-трек без аудио — визуальный режим
         audio.src = "";
       }
       audio.currentTime = 0;
-    }
-
-    if (player.isPlaying) {
-      audio.play().catch(() => {/* авто-воспроизведение заблокировано браузером */});
     } else {
-      audio.pause();
+      // Трек тот же — просто пауза/плей
+      if (player.isPlaying) {
+        audio.play().catch(() => {});
+      } else {
+        audio.pause();
+      }
     }
-  }, [player.currentTrack, player.isPlaying]);
+  }, [player.currentTrack?.id, player.isPlaying]); // eslint-disable-line
 
-  // Синхронизация громкости
+  // Громкость
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = player.volume / 100;
     }
   }, [player.volume]);
 
-  // Перемотка извне (клик по прогресс-бару)
   const seekTo = useCallback((pct: number) => {
     const audio = audioRef.current;
     if (audio && audio.duration) {
@@ -88,12 +94,11 @@ export function useAudioPlayer({ player, tracks, setPlayer }: UseAudioPlayerProp
     setPlayer(p => ({ ...p, progress: pct }));
   }, [setPlayer]);
 
-  // Получить текущее время/длительность для отображения
   const getTime = useCallback((): { current: number; duration: number } => {
     const audio = audioRef.current;
     return {
-      current:  audio?.currentTime  ?? 0,
-      duration: audio?.duration ?? 0,
+      current:  audio?.currentTime ?? 0,
+      duration: audio?.duration    ?? 0,
     };
   }, []);
 
