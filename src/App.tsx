@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import HomePage from "./pages/HomePage";
 import PlayerPage from "./pages/PlayerPage";
 import UploadPage from "./pages/UploadPage";
@@ -11,13 +11,15 @@ import RadioPage from "./pages/RadioPage";
 import { Track, PlayerState, Message } from "./types/music";
 import { DEMO_TRACKS } from "./data/demoTracks";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
+import { apiListTracks, apiSaveTracks, apiIncPlays, apiTogglePriority, apiDeleteTrack } from "./api/tracks";
 
 export type PageName = "home" | "player" | "upload" | "lyrics" | "admin" | "radio";
 
 export default function App() {
-  const [page, setPage]     = useState<PageName>("home");
-  const [tracks, setTracks] = useState<Track[]>(DEMO_TRACKS);
-  const [player, setPlayer] = useState<PlayerState>({
+  const [page, setPage]       = useState<PageName>("home");
+  const [tracks, setTracks]   = useState<Track[]>(DEMO_TRACKS);
+  const [dbLoaded, setDbLoaded] = useState(false);
+  const [player, setPlayer]   = useState<PlayerState>({
     currentTrack: DEMO_TRACKS[0],
     isPlaying: false,
     progress: 0,
@@ -27,10 +29,21 @@ export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [radioMode, setRadioMode] = useState(false);
 
+  // Загружаем треки из БД при старте
+  useEffect(() => {
+    apiListTracks().then(dbTracks => {
+      if (dbTracks.length > 0) {
+        setTracks(dbTracks);
+        setPlayer(p => ({ ...p, currentTrack: dbTracks[0] }));
+      }
+      setDbLoaded(true);
+    }).catch(() => setDbLoaded(true));
+  }, []);
+
   const { seekTo } = useAudioPlayer({ player, tracks, setPlayer });
 
-  // Счётчик прослушиваний
-  const incPlays = (id: string, mode: "manual" | "radio") => {
+  // Счётчик прослушиваний — локально + в БД
+  const incPlays = useCallback((id: string, mode: "manual" | "radio") => {
     setTracks(prev => prev.map(t => t.id === id
       ? { ...t,
           plays:      mode === "manual" ? (t.plays ?? 0) + 1 : (t.plays ?? 0),
@@ -38,12 +51,13 @@ export default function App() {
         }
       : t
     ));
-  };
+    apiIncPlays(id, mode).catch(() => {});
+  }, []);
 
-  const playTrack = (track: Track, mode: "manual" | "radio" = "manual") => {
+  const playTrack = useCallback((track: Track, mode: "manual" | "radio" = "manual") => {
     incPlays(track.id, mode);
     setPlayer(p => ({ ...p, currentTrack: track, isPlaying: true, progress: 0 }));
-  };
+  }, [incPlays]);
 
   const togglePlay = () => setPlayer(p => ({ ...p, isPlaying: !p.isPlaying }));
 
@@ -69,12 +83,16 @@ export default function App() {
 
   const stopRadio = () => setRadioMode(false);
 
-  // Переключение приоритета (сердечко)
-  const togglePriority = (id: string) =>
+  // Переключение приоритета — локально + в БД
+  const togglePriority = useCallback((id: string) => {
     setTracks(prev => prev.map(t => t.id === id ? { ...t, priority: !t.priority } : t));
+    apiTogglePriority(id).catch(() => {});
+  }, []);
 
-  const addTracks = (newTracks: Track[]) =>
+  const addTracks = useCallback((newTracks: Track[]) => {
     setTracks(prev => [...newTracks, ...prev]);
+    apiSaveTracks(newTracks).catch(() => {});
+  }, []);
 
   const updateLyrics = (id: string, lyrics: string) =>
     setTracks(prev => prev.map(t => t.id === id ? { ...t, lyrics } : t));
@@ -92,6 +110,16 @@ export default function App() {
   const handleDeleteMsg  = (id: string)   => setMessages(prev => prev.filter(m => m.id !== id));
 
   const unreadCount = messages.filter(m => !m.isRead).length;
+
+  // Пока БД не загружена — показываем лаконичный спиннер
+  if (!dbLoaded) {
+    return (
+      <div className="min-h-screen bg-mesh flex items-center justify-center flex-col gap-4">
+        <div className="w-12 h-12 rounded-full border-2 border-amber border-t-transparent animate-spin" />
+        <p className="text-white/30 text-xs uppercase tracking-widest font-display">Загрузка...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-mesh text-foreground flex flex-col">
@@ -132,7 +160,16 @@ export default function App() {
         {page === "admin"   && (
           <AdminGate>
             <AdminPage
-              tracks={tracks} setTracks={setTracks}
+              tracks={tracks}
+              setTracks={(fn) => {
+                // при удалении — синхронизируем с БД
+                setTracks(prev => {
+                  const next = fn(prev);
+                  const removed = prev.filter(t => !next.find(n => n.id === t.id));
+                  removed.forEach(t => apiDeleteTrack(t.id).catch(() => {}));
+                  return next;
+                });
+              }}
               messages={messages}
               onReadMessage={handleReadMsg}
               onDeleteMessage={handleDeleteMsg}

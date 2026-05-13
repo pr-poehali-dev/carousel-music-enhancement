@@ -1,0 +1,51 @@
+{
+  "tests": [
+    {
+      "name": "List tracks",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {"tracks": []},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Save tracks",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "save",
+        "tracks": [{"id": "test-1", "title": "Test", "artist": "Artist", "duration": "3:00", "cover": "https://example.com/img.jpg"}]
+      },
+      "expectedStatus": 200,
+      "expectedBody": {"ok": true},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Inc plays",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "inc_plays", "id": "test-1", "mode": "manual"},
+      "expectedStatus": 200,
+      "expectedBody": {"ok": true},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Toggle priority",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "toggle_priority", "id": "test-1"},
+      "expectedStatus": 200,
+      "expectedBody": {"ok": true},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Delete track",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "delete", "id": "test-1"},
+      "expectedStatus": 200,
+      "expectedBody": {"ok": true},
+      "bodyMatcher": "partial"
+    }
+  ]
+}
