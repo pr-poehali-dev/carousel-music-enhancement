@@ -1,28 +1,49 @@
+import { useState } from "react";
+import HomePage from "./pages/HomePage";
+import PlayerPage from "./pages/PlayerPage";
+import UploadPage from "./pages/UploadPage";
+import LyricsPage from "./pages/LyricsPage";
+import AdminPage from "./pages/AdminPage";
+import MiniPlayer from "./components/MiniPlayer";
+import Navigation from "./components/Navigation";
+import { Track, PlayerState } from "./types/music";
+import { DEMO_TRACKS } from "./data/demoTracks";
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
+export type PageName = "home" | "player" | "upload" | "lyrics" | "admin";
 
-const queryClient = new QueryClient();
+export default function App() {
+  const [page, setPage] = useState<PageName>("home");
+  const [tracks, setTracks] = useState<Track[]>(DEMO_TRACKS);
+  const [player, setPlayer] = useState<PlayerState>({
+    currentTrack: DEMO_TRACKS[0],
+    isPlaying: false,
+    progress: 34,
+    volume: 80,
+  });
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+  const playTrack = (track: Track) => {
+    setPlayer(p => ({ ...p, currentTrack: track, isPlaying: true }));
+  };
 
-export default App;
+  const togglePlay = () => setPlayer(p => ({ ...p, isPlaying: !p.isPlaying }));
+
+  const addTracks = (newTracks: Track[]) => {
+    setTracks(prev => [...newTracks, ...prev]);
+  };
+
+  return (
+    <div className="min-h-screen bg-mesh text-white flex flex-col">
+      <Navigation page={page} setPage={setPage} />
+
+      <main className="flex-1 pb-28">
+        {page === "home" && <HomePage tracks={tracks} onPlay={playTrack} setPage={setPage} player={player} onToggle={togglePlay} />}
+        {page === "player" && <PlayerPage player={player} tracks={tracks} onPlay={playTrack} onToggle={togglePlay} setPlayer={setPlayer} />}
+        {page === "upload" && <UploadPage onAdd={addTracks} setPage={setPage} />}
+        {page === "lyrics" && <LyricsPage tracks={tracks} currentTrack={player.currentTrack} onPlay={playTrack} />}
+        {page === "admin" && <AdminPage tracks={tracks} setTracks={setTracks} />}
+      </main>
+
+      <MiniPlayer player={player} onToggle={togglePlay} onOpen={() => setPage("player")} setPlayer={setPlayer} />
+    </div>
+  );
+}
