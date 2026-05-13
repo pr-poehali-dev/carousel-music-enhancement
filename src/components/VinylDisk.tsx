@@ -51,7 +51,7 @@ export default function VinylDisk({ cover, isPlaying, size = 220 }: Props) {
   // Тонарм: шарнир справа-сверху, когда играет — опускается на диск
   const armAnglePlaying = -28;  // градусы от вертикали (иголка на диске)
   const armAngleParked  = -6;   // поднята
-  const armAngle = isPlaying ? armAnglePlaying : armAngleParked;
+  const armAngle = isPlaying ? armAngleParked : armAnglePlaying;
 
   return (
     <div className="relative select-none" style={{ width: s + 60, height: s + 20 }}>
