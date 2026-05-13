@@ -237,9 +237,13 @@ export default function RubiksCube({ tracks, player, onPlay, onRadio, radioMode,
                 const cellsBefore = row * GRID + col;
                 const centerPos   = CENTER * GRID + CENTER;
                 const adjusted    = cellsBefore < centerPos ? cellsBefore : cellsBefore - 1;
-                const trackIdx    = (fi * (GRID * GRID - 1) + adjusted) % tracks.length;
-                const track       = tracks[trackIdx];
-                const isActive    = player.currentTrack?.id === track.id;
+                // Если треков меньше ячеек — зацикливаем, ячейка никогда не пустая
+                const trackIdx = tracks.length > 0
+                  ? (fi * (GRID * GRID - 1) + adjusted) % tracks.length
+                  : 0;
+                const track    = tracks[trackIdx] ?? tracks[0];
+                if (!track) return null;
+                const isActive = player.currentTrack?.id === track.id;
 
                 return (
                   <div

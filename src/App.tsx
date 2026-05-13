@@ -90,7 +90,22 @@ export default function App() {
   }, []);
 
   const addTracks = useCallback((newTracks: Track[]) => {
-    setTracks(prev => [...newTracks, ...prev]);
+    setTracks(prev => {
+      // Заменяем если title+artist совпадает, иначе добавляем в конец
+      const result = [...prev];
+      for (const nt of newTracks) {
+        const existIdx = result.findIndex(
+          t => t.title.toLowerCase() === nt.title.toLowerCase() &&
+               t.artist.toLowerCase() === nt.artist.toLowerCase()
+        );
+        if (existIdx >= 0) {
+          result[existIdx] = { ...result[existIdx], ...nt };
+        } else {
+          result.push(nt);
+        }
+      }
+      return result;
+    });
     apiSaveTracks(newTracks).catch(() => {});
   }, []);
 
