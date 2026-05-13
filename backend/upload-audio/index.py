@@ -27,8 +27,11 @@ def handler(event: dict, context) -> dict:
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
-    body      = json.loads(event.get("body") or "{}")
+    raw_body = event.get("body") or "{}"
+    print(f"[upload] body_len={len(raw_body)} isBase64={event.get('isBase64Encoded')}")
+    body      = json.loads(raw_body)
     action    = body.get("action", "upload")
+    print(f"[upload] action={action} file_data_len={len(body.get('file_data', ''))}")
 
     # Загрузка файла через base64
     if action == "upload":
