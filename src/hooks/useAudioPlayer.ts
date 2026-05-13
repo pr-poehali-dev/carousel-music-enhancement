@@ -52,12 +52,14 @@ export function useAudioPlayer({ player, tracks, setPlayer }: UseAudioPlayerProp
 
     if (trackChanged) {
       lastTrackId.current = player.currentTrack.id;
-      // Если есть реальный File — используем blob URL
-      if (player.currentTrack.file) {
-        const url = URL.createObjectURL(player.currentTrack.file);
-        audio.src = url;
+      if (player.currentTrack.audioUrl) {
+        // Аудио хранится на сервере
+        audio.src = player.currentTrack.audioUrl;
+      } else if (player.currentTrack.file) {
+        // Локальный файл (только что загружен, ещё не на сервере)
+        audio.src = URL.createObjectURL(player.currentTrack.file);
       } else {
-        // Для демо-треков src пуст — плеер работает визуально
+        // Демо-трек без аудио — визуальный режим
         audio.src = "";
       }
       audio.currentTime = 0;

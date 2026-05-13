@@ -13,6 +13,7 @@ export interface Track {
   plays?: number;       // кол-во прослушиваний вручную
   radioPlays?: number;  // кол-во прослушиваний в радио
   priority?: boolean;   // приоритет в радио (сердечко)
+  audioUrl?: string;    // URL аудио на сервере
 }
 
 export interface PlayerState {

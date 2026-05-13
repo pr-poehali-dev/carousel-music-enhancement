@@ -1,7 +1,8 @@
 import { Track } from "../types/music";
 import func2url from "../../backend/func2url.json";
 
-const URL = func2url.tracks;
+const URL        = func2url.tracks;
+const UPLOAD_URL = func2url["upload-audio"];
 
 export async function apiListTracks(): Promise<Track[]> {
   const res = await fetch(URL);
@@ -20,7 +21,27 @@ export async function apiListTracks(): Promise<Track[]> {
     priority:   t.priority ?? false,
     plays:      t.plays ?? 0,
     radioPlays: t.radio_plays ?? 0,
+    audioUrl:   t.audio_url ?? undefined,
   }));
+}
+
+// Загрузить аудиофайл на сервер, вернуть URL
+export async function apiUploadAudio(trackId: string, file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const b64    = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+  const res = await fetch(UPLOAD_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      track_id:  trackId,
+      filename:  file.name,
+      mime_type: file.type || "audio/mpeg",
+      data:      b64,
+    }),
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error ?? "upload failed");
+  return data.audio_url;
 }
 
 export async function apiSaveTracks(tracks: Track[]): Promise<void> {
