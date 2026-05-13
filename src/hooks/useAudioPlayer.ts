@@ -16,6 +16,7 @@ export function useAudioPlayer({ player, tracks, setPlayer }: UseAudioPlayerProp
   useEffect(() => {
     const audio = new Audio();
     audio.preload = "auto";
+    audio.volume = 1;
 
     audio.addEventListener("timeupdate", () => {
       if (!audio.duration) return;
@@ -32,11 +33,19 @@ export function useAudioPlayer({ player, tracks, setPlayer }: UseAudioPlayerProp
       });
     });
 
-    // Когда трек загрузился — играем если нужно
     audio.addEventListener("canplay", () => {
+      console.log("[audio] canplay, isPlayingRef=", isPlayingRef.current, "volume=", audio.volume, "src=", audio.src);
       if (isPlayingRef.current) {
-        audio.play().catch(() => {});
+        audio.play().catch(e => console.error("[audio] play error:", e));
       }
+    });
+
+    audio.addEventListener("error", (e) => {
+      console.error("[audio] error:", audio.error?.code, audio.error?.message, "src=", audio.src);
+    });
+
+    audio.addEventListener("volumechange", () => {
+      console.log("[audio] volume changed:", audio.volume, "muted:", audio.muted);
     });
 
     audioRef.current = audio;
@@ -54,25 +63,28 @@ export function useAudioPlayer({ player, tracks, setPlayer }: UseAudioPlayerProp
     isPlayingRef.current = player.isPlaying;
     const trackChanged = player.currentTrack.id !== lastTrackId.current;
 
+    console.log("[audio] effect: trackChanged=", trackChanged, "isPlaying=", player.isPlaying, "audioUrl=", player.currentTrack.audioUrl, "volume=", audio.volume);
+
     if (trackChanged) {
       lastTrackId.current = player.currentTrack.id;
       audio.pause();
 
       if (player.currentTrack.audioUrl) {
         audio.src = player.currentTrack.audioUrl;
+        audio.volume = 1;
         audio.load();
-        // play запустится через canplay
       } else if (player.currentTrack.file) {
         audio.src = URL.createObjectURL(player.currentTrack.file);
+        audio.volume = 1;
         audio.load();
       } else {
+        console.warn("[audio] no audioUrl and no file for track:", player.currentTrack.id);
         audio.src = "";
       }
       audio.currentTime = 0;
     } else {
-      // Трек тот же — просто пауза/плей
       if (player.isPlaying) {
-        audio.play().catch(() => {});
+        audio.play().catch(e => console.error("[audio] play error:", e));
       } else {
         audio.pause();
       }
@@ -82,7 +94,8 @@ export function useAudioPlayer({ player, tracks, setPlayer }: UseAudioPlayerProp
   // Громкость
   useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.volume = player.volume / 100;
+      const vol = player.volume != null ? player.volume / 100 : 1;
+      audioRef.current.volume = Math.max(0, Math.min(1, vol));
     }
   }, [player.volume]);
 
