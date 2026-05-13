@@ -46,16 +46,22 @@ export default function Navigation({ page, setPage, unreadMessages = 0 }: Props)
               onChange={e => {
                 const f = e.target.files?.[0];
                 if (!f) return;
-                const reader = new FileReader();
-                reader.onload = ev => {
-                  const url = ev.target?.result as string;
-                  localStorage.setItem('avatar', url);
+                const canvas = document.createElement('canvas');
+                canvas.width = 128;
+                canvas.height = 128;
+                const ctx = canvas.getContext('2d')!;
+                const img2 = new Image();
+                img2.onload = () => {
+                  ctx.drawImage(img2, 0, 0, 128, 128);
+                  const url = canvas.toDataURL('image/jpeg', 0.7);
+                  try { localStorage.setItem('avatar', url); } catch { /* квота */ }
                   const img = document.getElementById('avatar-img') as HTMLImageElement;
                   const ph  = document.getElementById('avatar-placeholder') as HTMLElement;
                   if (img) { img.src = url; img.style.display = 'block'; }
                   if (ph)  { ph.style.display = 'none'; }
+                  URL.revokeObjectURL(img2.src);
                 };
-                reader.readAsDataURL(f);
+                img2.src = URL.createObjectURL(f);
               }}
             />
           </div>
