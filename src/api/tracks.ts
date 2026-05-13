@@ -26,17 +26,45 @@ export async function apiListTracks(): Promise<Track[]> {
   }));
 }
 
-// Загрузить аудиофайл на сервер через FormData
+// Загрузить аудиофайл напрямую в S3 через presigned URL
 export async function apiUploadAudio(trackId: string, file: File, folder?: string): Promise<string> {
-  const form = new FormData();
-  form.append("track_id", trackId);
-  form.append("audio", file, file.name);
-  if (folder) form.append("folder", folder);
+  const mime = file.type || "audio/mpeg";
 
-  const res = await fetch(UPLOAD_URL, { method: "POST", body: form });
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.error ?? "upload failed");
-  return data.audio_url;
+  // Шаг 1: получаем presigned URL от сервера
+  const presignRes = await fetch(UPLOAD_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action:    "presign",
+      track_id:  trackId,
+      filename:  file.name,
+      mime_type: mime,
+      folder,
+    }),
+  });
+  const presignData = await presignRes.json();
+  if (!presignData.ok) throw new Error(presignData.error ?? "presign failed");
+
+  // Шаг 2: грузим файл напрямую в S3
+  await fetch(presignData.upload_url, {
+    method:  "PUT",
+    headers: { "Content-Type": mime },
+    body:    file,
+  });
+
+  // Шаг 3: сообщаем серверу что загрузка завершена
+  await fetch(UPLOAD_URL, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({
+      action:    "confirm",
+      track_id:  trackId,
+      audio_url: presignData.audio_url,
+      folder,
+    }),
+  });
+
+  return presignData.audio_url;
 }
 
 export async function apiSaveTracks(tracks: Track[]): Promise<void> {
