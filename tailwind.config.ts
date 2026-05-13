@@ -97,6 +97,14 @@ export default {
         'scale-in': {
           from: { opacity: '0', transform: 'scale(0.95)' },
           to:   { opacity: '1', transform: 'scale(1)' }
+        },
+        'spin-slow': {
+          from: { transform: 'rotate(0deg)' },
+          to:   { transform: 'rotate(360deg)' }
+        },
+        'float': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%':      { transform: 'translateY(-8px)' }
         }
       },
       animation: {
@@ -105,6 +113,8 @@ export default {
         'fade-in':        'fade-in 0.45s ease forwards',
         'slide-up':       'slide-up 0.55s ease forwards',
         'scale-in':       'scale-in 0.3s ease forwards',
+        'spin-slow':      'spin-slow 8s linear infinite',
+        'float':          'float 3s ease-in-out infinite',
       }
     }
   },

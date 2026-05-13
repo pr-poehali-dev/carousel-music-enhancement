@@ -7,11 +7,12 @@ import AdminPage from "./pages/AdminPage";
 import AdminGate from "./components/AdminGate";
 import MiniPlayer from "./components/MiniPlayer";
 import Navigation from "./components/Navigation";
+import RadioPage from "./pages/RadioPage";
 import { Track, PlayerState, Message } from "./types/music";
 import { DEMO_TRACKS } from "./data/demoTracks";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 
-export type PageName = "home" | "player" | "upload" | "lyrics" | "admin";
+export type PageName = "home" | "player" | "upload" | "lyrics" | "admin" | "radio";
 
 export default function App() {
   const [page, setPage]     = useState<PageName>("home");
@@ -88,6 +89,13 @@ export default function App() {
         )}
         {page === "upload" && <UploadPage onAdd={addTracks} setPage={setPage} />}
         {page === "lyrics"  && <LyricsPage tracks={tracks} currentTrack={player.currentTrack} onPlay={playTrack} />}
+        {page === "radio"   && (
+          <RadioPage
+            tracks={tracks} player={player} setPlayer={setPlayer}
+            onPlay={playTrack} onToggle={togglePlay}
+            onNext={playNext} onPrev={playPrev} seekTo={seekTo}
+          />
+        )}
         {page === "admin"   && (
           <AdminGate>
             <AdminPage

@@ -1,8 +1,6 @@
 import { useState } from "react";
+import RubiksCube from "../components/RubiksCube";
 import Icon from "@/components/ui/icon";
-import TrackCard from "../components/TrackCard";
-import TrackListSheet from "../components/TrackListSheet";
-import MessageForm from "../components/MessageForm";
 import { Track, PlayerState, Message } from "../types/music";
 import { PageName } from "../App";
 
@@ -17,128 +15,72 @@ interface Props {
   onMessage: (msg: Message) => void;
 }
 
-export default function HomePage({ tracks, onPlay, setPage, player, onLike, likedIds, onMessage }: Props) {
-  const [carouselIdx, setCarouselIdx] = useState(0);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const featured = tracks.slice(0, 5);
-  const recent = tracks.slice(0, 6);
+export default function HomePage({ tracks, onPlay, setPage, player, onToggle }: Props) {
+  const [hint, setHint] = useState(true);
 
-  const prev = () => setCarouselIdx(i => (i - 1 + featured.length) % featured.length);
-  const next = () => setCarouselIdx(i => (i + 1) % featured.length);
-  const feat = featured[carouselIdx];
-
-  if (!feat) return null;
+  const cur = player.currentTrack;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      {/* Hero */}
-      <section className="mb-12 animate-fade-in">
-        <div className="relative rounded-3xl overflow-hidden min-h-[360px] flex items-end"
-          style={{ background: "var(--grad-main)" }}>
-          <div className="absolute inset-0">
-            <img src={feat.cover} alt={feat.title}
-              className="w-full h-full object-cover opacity-30 mix-blend-overlay" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-          </div>
+    <div className="flex flex-col items-center min-h-full pt-6 pb-32 px-4 select-none">
+      <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-[0.15em] text-white mb-1">
+        МУЗЫКАЛЬНАЯ КАРУСЕЛЬ
+      </h1>
+      <p className="text-white/30 text-xs uppercase tracking-widest mb-8 font-body">
+        Крути · Касайся · Слушай
+      </p>
 
-          <div className="absolute top-6 right-6 flex gap-2">
-            <button onClick={prev} className="w-9 h-9 rounded-full glass-card flex items-center justify-center text-white hover:bg-white/20 transition-colors">
-              <Icon name="ChevronLeft" size={18} />
-            </button>
-            <button onClick={next} className="w-9 h-9 rounded-full glass-card flex items-center justify-center text-white hover:bg-white/20 transition-colors">
-              <Icon name="ChevronRight" size={18} />
-            </button>
-          </div>
-
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 flex gap-2">
-            {featured.map((_, i) => (
-              <button key={i} onClick={() => setCarouselIdx(i)}
-                className={`h-1.5 rounded-full transition-all duration-300 ${i === carouselIdx ? "w-6 bg-white" : "w-1.5 bg-white/40"}`}
-              />
-            ))}
-          </div>
-
-          <div className="relative z-10 p-8 flex items-end gap-6 w-full">
-            <img src={feat.cover} alt={feat.title}
-              className="w-24 h-24 rounded-2xl object-cover shadow-2xl hidden sm:block animate-float flex-shrink-0" />
-            <div className="flex-1">
-              <p className="text-white/50 text-sm uppercase tracking-widest font-display mb-1">{feat.genre}</p>
-              <h1 className="font-display text-4xl sm:text-5xl font-bold text-white mb-1 leading-tight">{feat.title}</h1>
-              <p className="text-white/70 text-lg">{feat.artist}</p>
-              <div className="flex gap-3 mt-4 flex-wrap">
-                <button onClick={() => onPlay(feat)} className="grad-btn px-6 py-2.5 rounded-xl font-display tracking-wider text-sm flex items-center gap-2">
-                  <Icon name="Play" size={16} className="text-white" />
-                  Слушать
-                </button>
-                <button onClick={() => setSheetOpen(true)} className="glass-card px-6 py-2.5 rounded-xl text-white/80 hover:text-white text-sm font-display tracking-wider flex items-center gap-2 transition-colors border border-white/20">
-                  <Icon name="List" size={16} />
-                  Все треки
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Stats strip */}
-      <section className="grid grid-cols-3 gap-4 mb-12">
-        {[
-          { icon: "Music", label: "Треков", val: tracks.length },
-          { icon: "Users", label: "Артистов", val: new Set(tracks.map(t => t.artist)).size },
-          { icon: "Heart", label: "Лайков", val: tracks.reduce((s, t) => s + (t.likes ?? 0), 0) },
-        ].map(s => (
-          <div key={s.label} className="glass-card rounded-2xl p-4 text-center">
-            <Icon name={s.icon} fallback="Music" size={22} className="text-neon-pink mx-auto mb-2" />
-            <p className="font-display text-2xl font-bold text-white">{s.val}</p>
-            <p className="text-white/40 text-xs uppercase tracking-wider">{s.label}</p>
-          </div>
-        ))}
-      </section>
-
-      {/* Recent tracks grid */}
-      <section className="mb-12">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="font-display text-2xl font-bold text-white tracking-wider">НОВЫЕ ТРЕКИ</h2>
-          <button
-            onClick={() => setSheetOpen(true)}
-            className="text-white/40 hover:text-white text-sm flex items-center gap-1.5 transition-colors px-3 py-1.5 rounded-xl hover:bg-white/5"
-          >
-            <Icon name="List" size={14} />
-            Все треки
+      {hint && (
+        <div className="mb-6 glass-card px-5 py-3 rounded-2xl flex items-center gap-3 max-w-sm w-full">
+          <Icon name="Info" size={16} className="text-amber flex-shrink-0" />
+          <p className="text-white/60 text-xs leading-relaxed flex-1">
+            Тяни для вращения, тапни по обложке чтобы включить трек
+          </p>
+          <button onClick={() => setHint(false)} className="text-white/30 hover:text-white/60">
+            <Icon name="X" size={14} />
           </button>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {recent.map((track, i) => (
-            <TrackCard
-              key={track.id}
-              track={track}
-              onPlay={onPlay}
-              onLike={onLike}
-              liked={likedIds.has(track.id)}
-              isActive={player.currentTrack?.id === track.id}
-              isPlaying={player.isPlaying}
-              index={i}
-            />
-          ))}
+      )}
+
+      <RubiksCube tracks={tracks} player={player} onPlay={onPlay} />
+
+      {cur && (
+        <div className="mt-8 glass-card rounded-2xl px-5 py-4 flex items-center gap-4 max-w-sm w-full">
+          <img src={cur.cover} alt={cur.title} className="w-12 h-12 rounded-xl object-cover flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-display text-sm font-bold truncate">{cur.title}</p>
+            <p className="text-white/40 text-xs truncate">{cur.artist}</p>
+          </div>
+          <button
+            onClick={onToggle}
+            className="w-10 h-10 rounded-full grad-btn flex items-center justify-center flex-shrink-0"
+          >
+            <Icon name={player.isPlaying ? "Pause" : "Play"} size={18} className="text-white" />
+          </button>
+          <button
+            onClick={() => setPage("player")}
+            className="w-10 h-10 rounded-full glass-card flex items-center justify-center flex-shrink-0 border border-white/10"
+          >
+            <Icon name="Maximize2" size={15} className="text-white/60" />
+          </button>
         </div>
-      </section>
+      )}
 
-      {/* Message form */}
-      <section className="max-w-xl">
-        <MessageForm onSend={onMessage} />
-      </section>
-
-      {/* All tracks sheet */}
-      <TrackListSheet
-        tracks={tracks}
-        currentTrack={player.currentTrack}
-        isPlaying={player.isPlaying}
-        onPlay={(t) => { onPlay(t); setSheetOpen(false); }}
-        onLike={onLike}
-        likedIds={likedIds}
-        open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-      />
+      <div className="mt-6 flex gap-3">
+        <button
+          onClick={() => setPage("radio" as PageName)}
+          className="glass-card px-5 py-2.5 rounded-xl text-white/70 hover:text-white text-sm font-display tracking-wider flex items-center gap-2 transition-colors border border-white/10"
+        >
+          <Icon name="Radio" size={15} />
+          Радио
+        </button>
+        <button
+          onClick={() => setPage("player")}
+          className="glass-card px-5 py-2.5 rounded-xl text-white/70 hover:text-white text-sm font-display tracking-wider flex items-center gap-2 transition-colors border border-white/10"
+        >
+          <Icon name="Disc3" size={15} />
+          Плеер
+        </button>
+      </div>
     </div>
   );
 }
