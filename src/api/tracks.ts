@@ -27,9 +27,19 @@ export async function apiListTracks(): Promise<Track[]> {
 }
 
 // Загрузить аудиофайл на сервер, вернуть URL
+function toBase64(buffer: ArrayBuffer): string {
+  const bytes  = new Uint8Array(buffer);
+  const chunk  = 8192;
+  let binary   = "";
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
 export async function apiUploadAudio(trackId: string, file: File): Promise<string> {
   const buffer = await file.arrayBuffer();
-  const b64    = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+  const b64    = toBase64(buffer);
   const res = await fetch(UPLOAD_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
