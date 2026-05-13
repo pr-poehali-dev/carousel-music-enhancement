@@ -5,6 +5,15 @@
       "method": "OPTIONS",
       "path": "/",
       "expectedStatus": 200
+    },
+    {
+      "name": "Set CORS on bucket",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "set_cors"},
+      "expectedStatus": 200,
+      "expectedBody": {"ok": true, "message": "CORS applied"},
+      "bodyMatcher": "partial"
     }
   ]
 }
