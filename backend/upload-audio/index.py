@@ -1,5 +1,5 @@
-"""Генерация presigned URL для прямой загрузки аудио в S3."""
-import os, json
+"""Загрузка аудиофайла в S3 через base64 и сохранение audio_url в БД."""
+import os, json, base64
 import boto3
 import psycopg2
 
@@ -20,21 +20,6 @@ def get_s3():
         aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
     )
 
-def ensure_bucket_cors(s3):
-    cors_config = {
-        "CORSRules": [{
-            "AllowedOrigins": ["*"],
-            "AllowedMethods": ["GET", "PUT", "HEAD"],
-            "AllowedHeaders": ["*"],
-            "ExposeHeaders": ["ETag", "Content-Length"],
-            "MaxAgeSeconds": 86400,
-        }]
-    }
-    try:
-        s3.put_bucket_cors(Bucket="files", CORSConfiguration=cors_config)
-    except Exception:
-        pass
-
 def get_conn():
     return psycopg2.connect(os.environ["DATABASE_URL"])
 
@@ -42,41 +27,34 @@ def handler(event: dict, context) -> dict:
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
-    body     = json.loads(event.get("body") or "{}")
-    action   = body.get("action", "presign")
+    body      = json.loads(event.get("body") or "{}")
+    action    = body.get("action", "upload")
 
-    # Генерируем presigned URL для загрузки
-    if action == "presign":
-        track_id  = body.get("track_id", "")
-        filename  = body.get("filename", "audio.mp3")
-        mime_type = body.get("mime_type", "audio/mpeg")
-        folder    = body.get("folder")
+    # Загрузка файла через base64
+    if action == "upload":
+        track_id   = body.get("track_id", "")
+        filename   = body.get("filename", "audio.mp3")
+        mime_type  = body.get("mime_type", "audio/mpeg")
+        folder     = body.get("folder")
+        file_b64   = body.get("file_data", "")
 
+        if not file_b64:
+            return {"statusCode": 400, "headers": CORS,
+                    "body": json.dumps({"ok": False, "error": "no file_data"})}
+
+        file_bytes = base64.b64decode(file_b64)
         ext    = filename.rsplit(".", 1)[-1].lower() if "." in filename else "mp3"
         s3_key = f"audio/{track_id}.{ext}"
 
-        s3 = get_s3()
-        ensure_bucket_cors(s3)
-        presigned_url = s3.generate_presigned_url(
-            "put_object",
-            Params={"Bucket": "files", "Key": s3_key, "ContentType": mime_type},
-            ExpiresIn=3600,
+        get_s3().put_object(
+            Bucket="files",
+            Key=s3_key,
+            Body=file_bytes,
+            ContentType=mime_type,
+            ACL="public-read",
         )
 
         audio_url = f"{CDN_BASE}/files/{s3_key}"
-
-        return {"statusCode": 200, "headers": CORS, "body": json.dumps({
-            "ok": True,
-            "upload_url": presigned_url,
-            "audio_url":  audio_url,
-            "s3_key":     s3_key,
-        })}
-
-    # После загрузки — сохранить audio_url в БД
-    if action == "confirm":
-        track_id  = body.get("track_id", "")
-        audio_url = body.get("audio_url", "")
-        folder    = body.get("folder")
 
         conn = get_conn()
         cur  = conn.cursor()
@@ -91,13 +69,7 @@ def handler(event: dict, context) -> dict:
             conn.close()
 
         return {"statusCode": 200, "headers": CORS,
-                "body": json.dumps({"ok": True})}
-
-    # Применить CORS-политику на бакет вручную
-    if action == "set_cors":
-        ensure_bucket_cors(get_s3())
-        return {"statusCode": 200, "headers": CORS,
-                "body": json.dumps({"ok": True, "message": "CORS applied"})}
+                "body": json.dumps({"ok": True, "audio_url": audio_url})}
 
     return {"statusCode": 400, "headers": CORS,
             "body": json.dumps({"error": "unknown action"})}
