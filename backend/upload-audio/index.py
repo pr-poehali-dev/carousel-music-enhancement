@@ -1,5 +1,5 @@
-"""Загрузка аудиофайла в S3 через multipart/form-data."""
-import os, base64, json, cgi, io
+"""Загрузка аудиофайла в S3. Принимает multipart/form-data."""
+import os, base64, json, re
 import boto3
 import psycopg2
 
@@ -23,57 +23,72 @@ def get_s3():
 def get_conn():
     return psycopg2.connect(os.environ["DATABASE_URL"])
 
+def parse_multipart(body_bytes: bytes, content_type: str):
+    m = re.search(r'boundary=([^\s;]+)', content_type)
+    if not m:
+        return {}
+    boundary = m.group(1).strip('"').encode()
+    fields = {}
+    for part in body_bytes.split(b'--' + boundary):
+        if not part or part == b'--\r\n' or part == b'--':
+            continue
+        sep = b'\r\n\r\n' if b'\r\n\r\n' in part else b'\n\n'
+        if sep not in part:
+            continue
+        headers_raw, body = part.split(sep, 1)
+        body = body.rstrip(b'\r\n')
+        hdr = headers_raw.decode('utf-8', errors='replace')
+        nm = re.search(r'name="([^"]+)"', hdr)
+        if not nm:
+            continue
+        name = nm.group(1)
+        fn = re.search(r'filename="([^"]+)"', hdr)
+        ct = re.search(r'Content-Type:\s*([^\r\n]+)', hdr, re.I)
+        if fn:
+            fields[name] = {
+                'data': body,
+                'filename': fn.group(1),
+                'content_type': ct.group(1).strip() if ct else 'audio/mpeg'
+            }
+        else:
+            fields[name] = body.decode('utf-8', errors='replace')
+    return fields
+
 def handler(event: dict, context) -> dict:
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
-    # Получаем тело запроса
     body_raw = event.get("body", "") or ""
-    if event.get("isBase64Encoded"):
-        body_bytes = base64.b64decode(body_raw)
-    else:
-        body_bytes = body_raw.encode("utf-8")
+    body_bytes = base64.b64decode(body_raw) if event.get("isBase64Encoded") else body_raw.encode("latin-1")
 
-    content_type = event.get("headers", {}).get("content-type") or \
-                   event.get("headers", {}).get("Content-Type", "")
-
-    # Парсим multipart/form-data
-    environ = {
-        "REQUEST_METHOD": "POST",
-        "CONTENT_TYPE":   content_type,
-        "CONTENT_LENGTH": str(len(body_bytes)),
-    }
-    form = cgi.FieldStorage(
-        fp=io.BytesIO(body_bytes),
-        environ=environ,
-        keep_blank_values=True,
+    content_type = next(
+        (v for k, v in (event.get("headers") or {}).items() if k.lower() == "content-type"), ""
     )
 
-    track_id  = form.getvalue("track_id", "")
-    folder    = form.getvalue("folder", None)
-    audio_field = form["audio"] if "audio" in form else None
+    fields   = parse_multipart(body_bytes, content_type)
+    track_id = fields.get("track_id", "")
+    folder   = fields.get("folder") or None
+    audio    = fields.get("audio")
 
-    if not track_id or not audio_field:
+    if not track_id or not isinstance(audio, dict):
         return {"statusCode": 400, "headers": CORS,
-                "body": json.dumps({"error": "track_id and audio required"})}
+                "body": json.dumps({"error": "missing fields", "got": list(fields.keys())})}
 
-    audio_bytes = audio_field.file.read()
-    filename    = audio_field.filename or "audio.mp3"
-    mime_type   = audio_field.type or "audio/mpeg"
-    ext         = filename.rsplit(".", 1)[-1].lower() if "." in filename else "mp3"
-    s3_key      = f"audio/{track_id}.{ext}"
+    filename  = audio["filename"]
+    ext       = filename.rsplit(".", 1)[-1].lower() if "." in filename else "mp3"
+    s3_key    = f"audio/{track_id}.{ext}"
 
-    # Загружаем в S3
-    s3 = get_s3()
-    s3.put_object(Bucket="files", Key=s3_key, Body=audio_bytes, ContentType=mime_type)
+    get_s3().put_object(
+        Bucket="files", Key=s3_key,
+        Body=audio["data"], ContentType=audio["content_type"]
+    )
     audio_url = f"{CDN_BASE}/files/{s3_key}"
 
-    # Сохраняем URL в БД
     conn = get_conn()
     cur  = conn.cursor()
     try:
         cur.execute(
-            f"UPDATE {SCHEMA}.tracks SET audio_url = %s, folder = COALESCE(folder, %s) WHERE id = %s",
+            f"UPDATE {SCHEMA}.tracks SET audio_url=%s, folder=COALESCE(folder,%s) WHERE id=%s",
             (audio_url, folder, track_id)
         )
         conn.commit()
