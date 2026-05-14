@@ -81,7 +81,7 @@ def handler(event: dict, context) -> dict:
         presigned = s3.generate_presigned_url("get_object", Params={"Bucket": "files", "Key": s3_key}, ExpiresIn=3600)
         print(f"[upload] presigned={presigned}")
 
-        cdn_base  = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket"
+        cdn_base  = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}"
         audio_url = f"{cdn_base}/files/{s3_key}"
         print(f"[upload] cdn_url={audio_url}")
 
