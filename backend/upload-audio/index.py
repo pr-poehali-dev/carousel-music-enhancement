@@ -73,9 +73,17 @@ def handler(event: dict, context) -> dict:
         s3_key = f"audio/{track_id}.{ext}"
         s3.put_object(Bucket="files", Key=s3_key, Body=file_bytes, ContentType=mime_type)
 
+        # Проверяем что файл реально есть в S3
+        head = s3.head_object(Bucket="files", Key=s3_key)
+        print(f"[upload] s3 head ok: size={head['ContentLength']} key={s3_key}")
+
+        # Генерируем presigned URL чтобы проверить реальный доступ
+        presigned = s3.generate_presigned_url("get_object", Params={"Bucket": "files", "Key": s3_key}, ExpiresIn=3600)
+        print(f"[upload] presigned={presigned}")
+
         cdn_base  = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket"
         audio_url = f"{cdn_base}/files/{s3_key}"
-        print(f"[upload] audio_url={audio_url}")
+        print(f"[upload] cdn_url={audio_url}")
 
         # Сохраняем в БД
         conn = get_conn()
