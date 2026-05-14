@@ -29,17 +29,14 @@ export async function apiListTracks(): Promise<Track[]> {
 // Загрузить аудиофайл через бэкенд чанками по 512КБ
 export async function apiUploadAudio(trackId: string, file: File, folder?: string): Promise<string> {
   const mime      = file.type || "audio/mpeg";
-  const CHUNK     = 512 * 1024; // 512 КБ
+  const CHUNK     = 64 * 1024; // 64 КБ — безопасный размер для btoa
   const uploadId  = trackId + "_" + Date.now();
   const buffer    = await file.arrayBuffer();
   const total     = Math.ceil(buffer.byteLength / CHUNK);
 
   for (let i = 0; i < total; i++) {
     const slice = buffer.slice(i * CHUNK, (i + 1) * CHUNK);
-    const bytes = new Uint8Array(slice);
-    let bin = "";
-    for (let j = 0; j < bytes.byteLength; j++) bin += String.fromCharCode(bytes[j]);
-    const data = btoa(bin);
+    const data = btoa(String.fromCharCode(...new Uint8Array(slice)));
 
     const res = await fetch(UPLOAD_URL, {
       method: "POST",
