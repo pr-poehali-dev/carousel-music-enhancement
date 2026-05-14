@@ -71,7 +71,7 @@ def handler(event: dict, context) -> dict:
         # Загружаем финальный файл
         ext    = filename.rsplit(".", 1)[-1].lower() if "." in filename else "mp3"
         s3_key = f"audio/{track_id}.{ext}"
-        s3.put_object(Bucket="files", Key=s3_key, Body=file_bytes, ContentType=mime_type)
+        s3.put_object(Bucket="files", Key=s3_key, Body=file_bytes, ContentType=mime_type, ACL="public-read")
 
         # Проверяем что файл реально есть в S3
         head = s3.head_object(Bucket="files", Key=s3_key)
