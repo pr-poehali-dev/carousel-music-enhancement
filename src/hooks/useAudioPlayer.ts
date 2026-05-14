@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from "react";
 import { PlayerState, Track } from "../types/music";
+import { apiLoadAudioBlob } from "../api/tracks";
 
 interface UseAudioPlayerProps {
   player: PlayerState;
@@ -70,9 +71,19 @@ export function useAudioPlayer({ player, tracks, setPlayer }: UseAudioPlayerProp
       audio.pause();
 
       if (player.currentTrack.audioUrl) {
-        audio.src = player.currentTrack.audioUrl;
-        audio.volume = 1;
-        audio.load();
+        const streamUrl = player.currentTrack.audioUrl;
+        if (streamUrl.includes("action=stream")) {
+          apiLoadAudioBlob(streamUrl).then(blobUrl => {
+            audio.src = blobUrl;
+            audio.volume = player.volume ?? 1;
+            audio.load();
+            if (isPlayingRef.current) audio.play().catch(() => {});
+          });
+        } else {
+          audio.src = streamUrl;
+          audio.volume = 1;
+          audio.load();
+        }
       } else if (player.currentTrack.file) {
         audio.src = URL.createObjectURL(player.currentTrack.file);
         audio.volume = 1;

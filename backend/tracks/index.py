@@ -32,16 +32,28 @@ def handler(event: dict, context) -> dict:
     body   = json.loads(event.get("body") or "{}")
     action = body.get("action") or params.get("action", "list")
 
-    # Стриминг аудио из S3
-    if action == "stream":
+    # Размер аудиофайла
+    if action == "audio_size":
         key = params.get("key", "")
         if not key or not key.startswith("audio/"):
+            return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "bad key"})}
+        head = get_s3().head_object(Bucket="files", Key=key)
+        return {"statusCode": 200, "headers": CORS,
+                "body": json.dumps({"size": head["ContentLength"]})}
+
+    # Отдача куска аудио из S3 по range (offset+length), max 512КБ
+    if action == "stream":
+        key    = params.get("key", "")
+        offset = int(params.get("offset", "0"))
+        length = min(int(params.get("length", str(512*1024))), 512*1024)
+        if not key or not key.startswith("audio/"):
             return {"statusCode": 400, "headers": CORS, "body": "bad key"}
-        obj  = get_s3().get_object(Bucket="files", Key=key)
+        rng = f"bytes={offset}-{offset+length-1}"
+        obj = get_s3().get_object(Bucket="files", Key=key, Range=rng)
         data = obj["Body"].read()
         return {
             "statusCode": 200,
-            "headers": {**CORS, "Content-Type": "audio/mpeg", "Accept-Ranges": "bytes"},
+            "headers": {**CORS, "Content-Type": "audio/mpeg"},
             "body": base64.b64encode(data).decode(),
             "isBase64Encoded": True,
         }

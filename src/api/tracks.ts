@@ -1,11 +1,11 @@
 import { Track } from "../types/music";
 import func2url from "../../backend/func2url.json";
 
-const URL        = func2url.tracks;
+const TRACKS_URL = func2url.tracks;
 const UPLOAD_URL = func2url["upload-audio"];
 
 export async function apiListTracks(): Promise<Track[]> {
-  const res = await fetch(URL);
+  const res = await fetch(TRACKS_URL);
   const data = await res.json();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (data.tracks ?? []).map((t: any) => ({
@@ -58,8 +58,35 @@ export async function apiUploadAudio(trackId: string, file: File, folder?: strin
   return finalData.audio_url;
 }
 
+// Загрузить аудио из S3 чанками по 512КБ и вернуть blob URL для плеера
+export async function apiLoadAudioBlob(audioUrl: string): Promise<string> {
+  const keyMatch = audioUrl.match(/key=(audio\/[^&]+)/);
+  if (!keyMatch) return audioUrl;
+  const key = keyMatch[1];
+  const CHUNK = 512 * 1024;
+
+  const sizeRes  = await fetch(`${TRACKS_URL}?action=audio_size&key=${key}`);
+  const sizeData = await sizeRes.json();
+  const total: number = sizeData.size ?? 0;
+  if (!total) throw new Error("unknown audio size");
+
+  const parts: Uint8Array[] = [];
+  let offset = 0;
+  while (offset < total) {
+    const res  = await fetch(`${TRACKS_URL}?action=stream&key=${key}&offset=${offset}&length=${CHUNK}`);
+    const data = await res.json();
+    const chunk = Uint8Array.from(atob(data.body ?? ""), c => c.charCodeAt(0));
+    parts.push(chunk);
+    offset += chunk.length;
+    if (chunk.length < CHUNK) break;
+  }
+
+  const blob = new Blob(parts, { type: "audio/mpeg" });
+  return URL.createObjectURL(blob);
+}
+
 export async function apiSaveTracks(tracks: Track[]): Promise<void> {
-  await fetch(URL, {
+  await fetch(TRACKS_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "save", tracks }),
@@ -67,7 +94,7 @@ export async function apiSaveTracks(tracks: Track[]): Promise<void> {
 }
 
 export async function apiIncPlays(id: string, mode: "manual" | "radio"): Promise<void> {
-  await fetch(URL, {
+  await fetch(TRACKS_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "inc_plays", id, mode }),
@@ -75,7 +102,7 @@ export async function apiIncPlays(id: string, mode: "manual" | "radio"): Promise
 }
 
 export async function apiTogglePriority(id: string): Promise<boolean> {
-  const res = await fetch(URL, {
+  const res = await fetch(TRACKS_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "toggle_priority", id }),
@@ -85,7 +112,7 @@ export async function apiTogglePriority(id: string): Promise<boolean> {
 }
 
 export async function apiDeleteTrack(id: string): Promise<void> {
-  await fetch(URL, {
+  await fetch(TRACKS_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "delete", id }),
@@ -93,7 +120,7 @@ export async function apiDeleteTrack(id: string): Promise<void> {
 }
 
 export async function apiDeleteFolder(folder: string): Promise<void> {
-  await fetch(URL, {
+  await fetch(TRACKS_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "delete_folder", folder }),
