@@ -42,8 +42,8 @@ def handler(event: dict, context) -> dict:
             for t in body.get("tracks", []):
                 cur.execute(f"""
                     INSERT INTO {SCHEMA}.tracks
-                        (id, title, artist, album, folder, duration, cover, genre, year, lyrics)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        (id, title, artist, album, folder, duration, cover, genre, year, lyrics, audio_url)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (id) DO UPDATE SET
                         title    = EXCLUDED.title,
                         artist   = EXCLUDED.artist,
@@ -53,12 +53,14 @@ def handler(event: dict, context) -> dict:
                         cover    = EXCLUDED.cover,
                         genre    = EXCLUDED.genre,
                         year     = EXCLUDED.year,
-                        lyrics   = EXCLUDED.lyrics
+                        lyrics   = EXCLUDED.lyrics,
+                        audio_url = COALESCE(EXCLUDED.audio_url, {SCHEMA}.tracks.audio_url)
                 """, (
                     t["id"], t["title"], t.get("artist", ""),
                     t.get("album"), t.get("folder"),
                     t.get("duration", "0:00"), t.get("cover", ""),
                     t.get("genre"), t.get("year"), t.get("lyrics", ""),
+                    t.get("audioUrl") or t.get("audio_url"),
                 ))
             conn.commit()
             return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}

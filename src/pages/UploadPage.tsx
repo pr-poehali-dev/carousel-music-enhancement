@@ -76,6 +76,9 @@ export default function UploadPage({ onAdd, setPage }: Props) {
         album: folder,
       };
 
+      // Сначала создаём запись в БД, чтобы upload-audio нашёл строку для UPDATE
+      await apiSaveTracks([track]).catch(() => {});
+
       try {
         const audioUrl = await apiUploadAudio(id, f, folder);
         track.audioUrl = audioUrl;
@@ -87,7 +90,7 @@ export default function UploadPage({ onAdd, setPage }: Props) {
       setProgress({ done: i + 1, total: audioFiles.length });
     }
 
-    // Сохраняем в БД и добавляем в библиотеку
+    // Сохраняем финальное состояние (с audioUrl) в БД
     await apiSaveTracks(tracks).catch(() => {});
     onAdd(tracks);
     setUploading(false);
