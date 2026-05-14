@@ -3,8 +3,7 @@ import os, json, base64
 import boto3
 import psycopg2
 
-SCHEMA   = os.environ.get("MAIN_DB_SCHEMA", "t_p93322278_carousel_music_enhan")
-CDN_BASE = f"https://cdn.poehali.dev/projects/{os.environ.get('AWS_ACCESS_KEY_ID', '')}/bucket"
+SCHEMA = os.environ.get("MAIN_DB_SCHEMA", "t_p93322278_carousel_music_enhan")
 
 CORS = {
     "Access-Control-Allow-Origin": "*",
@@ -74,7 +73,9 @@ def handler(event: dict, context) -> dict:
         s3_key = f"audio/{track_id}.{ext}"
         s3.put_object(Bucket="files", Key=s3_key, Body=file_bytes, ContentType=mime_type)
 
-        audio_url = f"{CDN_BASE}/files/{s3_key}"
+        cdn_base  = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket"
+        audio_url = f"{cdn_base}/files/{s3_key}"
+        print(f"[upload] audio_url={audio_url}")
 
         # Сохраняем в БД
         conn = get_conn()
