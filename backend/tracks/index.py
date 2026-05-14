@@ -1,7 +1,16 @@
-"""API для треков: получение, сохранение, обновление статистики и приоритета."""
-import json, os
+"""API для треков: получение, сохранение, статистика, приоритет + стриминг аудио."""
+import json, os, base64
 import psycopg2
+import boto3
 from psycopg2.extras import RealDictCursor
+
+def get_s3():
+    return boto3.client(
+        "s3",
+        endpoint_url="https://bucket.poehali.dev",
+        aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
+        aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
+    )
 
 SCHEMA = "t_p93322278_carousel_music_enhan"
 
@@ -19,8 +28,23 @@ def handler(event: dict, context) -> dict:
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
     method = event.get("httpMethod", "GET")
+    params = event.get("queryStringParameters") or {}
     body   = json.loads(event.get("body") or "{}")
-    action = body.get("action") or event.get("queryStringParameters", {}).get("action", "list")
+    action = body.get("action") or params.get("action", "list")
+
+    # Стриминг аудио из S3
+    if action == "stream":
+        key = params.get("key", "")
+        if not key or not key.startswith("audio/"):
+            return {"statusCode": 400, "headers": CORS, "body": "bad key"}
+        obj  = get_s3().get_object(Bucket="files", Key=key)
+        data = obj["Body"].read()
+        return {
+            "statusCode": 200,
+            "headers": {**CORS, "Content-Type": "audio/mpeg", "Accept-Ranges": "bytes"},
+            "body": base64.b64encode(data).decode(),
+            "isBase64Encoded": True,
+        }
 
     conn = get_conn()
     cur  = conn.cursor(cursor_factory=RealDictCursor)

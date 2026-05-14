@@ -17,7 +17,6 @@ def get_s3():
         endpoint_url="https://bucket.poehali.dev",
         aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
         aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
-        config=boto3.session.Config(signature_version="s3"),
     )
 
 def set_bucket_public_policy(s3):
@@ -97,9 +96,9 @@ def handler(event: dict, context) -> dict:
         head = s3.head_object(Bucket="files", Key=s3_key)
         print(f"[upload] s3 head ok: size={head['ContentLength']} key={s3_key}")
 
-        cdn_base  = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}"
-        audio_url = f"{cdn_base}/files/{s3_key}"
-        print(f"[upload] cdn_url={audio_url}")
+        tracks_url = "https://functions.poehali.dev/7416d1e9-1b1b-459e-93bb-84fb60b8e4af"
+        audio_url  = f"{tracks_url}?action=stream&key={s3_key}"
+        print(f"[upload] stream_url={audio_url}")
 
         # Сохраняем в БД
         conn = get_conn()
