@@ -17,7 +17,26 @@ def get_s3():
         endpoint_url="https://bucket.poehali.dev",
         aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
         aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
+        config=boto3.session.Config(signature_version="s3"),
     )
+
+def set_bucket_public_policy(s3):
+    import json as _json
+    policy = _json.dumps({
+        "Version": "2012-10-17",
+        "Statement": [{
+            "Sid": "PublicReadAudio",
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::files/audio/*"
+        }]
+    })
+    try:
+        s3.put_bucket_policy(Bucket="files", Policy=policy)
+        print("[upload] bucket policy set ok")
+    except Exception as e:
+        print(f"[upload] bucket policy error: {e}")
 
 def get_conn():
     return psycopg2.connect(os.environ["DATABASE_URL"])
@@ -71,15 +90,12 @@ def handler(event: dict, context) -> dict:
         # Загружаем финальный файл
         ext    = filename.rsplit(".", 1)[-1].lower() if "." in filename else "mp3"
         s3_key = f"audio/{track_id}.{ext}"
-        s3.put_object(Bucket="files", Key=s3_key, Body=file_bytes, ContentType=mime_type, ACL="public-read")
+        s3.put_object(Bucket="files", Key=s3_key, Body=file_bytes, ContentType=mime_type)
+        set_bucket_public_policy(s3)
 
         # Проверяем что файл реально есть в S3
         head = s3.head_object(Bucket="files", Key=s3_key)
         print(f"[upload] s3 head ok: size={head['ContentLength']} key={s3_key}")
-
-        # Генерируем presigned URL чтобы проверить реальный доступ
-        presigned = s3.generate_presigned_url("get_object", Params={"Bucket": "files", "Key": s3_key}, ExpiresIn=3600)
-        print(f"[upload] presigned={presigned}")
 
         cdn_base  = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}"
         audio_url = f"{cdn_base}/files/{s3_key}"
